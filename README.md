@@ -18,20 +18,24 @@
 
 ```
 cool-admin-rust/
-├── Cargo.toml                 # workspace 根
-├── rust-toolchain.toml
-├── proto/                     # .proto 契约（单一事实来源）
-│   ├── common/v1/common.proto # BaseRes / IdsReq / PageQuery 等公共消息
-│   └── internal/v1/internal.proto  # InternalService: Hello / Health
-├── crates/
-│   ├── cool-proto/            # proto 生成代码（build.rs + tonic-build）
-│   ├── cool-core/             # 核心框架：错误码、响应、日志、鉴权、CRUD 引擎
-│   ├── cool-db/               # SQLx 连接池 + 迁移
-│   ├── modules/demo/          # demo 演示模块（DemoSample CRUD）
-│   └── server/                # gRPC 二进制入口（cool-admin-rust）
-├── migrations/                # SQL 迁移（决策 D3）
-├── manifest/config/config.yaml
-└── docs/
+├── Cargo.toml                  # workspace 根
+├── proto/                      # 共享契约（common.v1 / internal.v1）
+├── crates/                     # 基础库（可复用）
+│   ├── cool-proto/             #   proto 代码生成（聚合各 app 自有 proto）
+│   ├── cool-core/              #   核心框架（CRUD / sa-token / 缓存 / 密码）
+│   ├── cool-db/                #   SQLx 连接池
+│   ├── cool-func/              #   分布式函数（Redis pub/sub）
+│   ├── cool-file/              #   文件存储驱动（local/minio/oss）
+│   ├── cool-micro/             #   微服务脚手架（分布式会话 / 服务鉴权）
+│   └── cool-tools/             #   CLI
+├── apps/                       # 业务应用（完全自包含）
+│   ├── base/    :8001          #   proto + manifest + migrations + src(lib+bin)
+│   ├── dict/    :8002          #   同上
+│   ├── space/   :8003
+│   ├── task/    :8004
+│   ├── demo/                   #   CRUD 示范（仅 lib）
+│   └── server/                 #   单体 all-in-one
+└── docs/                       # Mintlify 文档
 ```
 
 ---
@@ -53,8 +57,8 @@ cargo build
 # 单元测试
 cargo test
 
-# 运行（默认读取 manifest/config/config.yaml）
-cargo run -p server
+# 运行（默认读取各应用 `apps/<name>/manifest/config.yaml`）
+cargo run -p app-server
 # 或
 ./target/debug/cool-admin-rust
 ```
@@ -233,7 +237,7 @@ cool-tools module demo_x     # 生成模块骨架（model/service/handler）
 
 ### 3.6 配置
 
-`manifest/config/config.yaml`，可用环境变量覆盖（前缀 `COOL_`，`__` 分隔层级）：
+`apps/<name>/manifest/config.yaml`，可用环境变量覆盖（前缀 `COOL_`，`__` 分隔层级）：
 
 ```bash
 COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
@@ -259,12 +263,12 @@ COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
 | `cool-func` | 分布式函数（注册表 / master 选举 / Redis pub/sub） | `cool/func.go` |
 | `cool-file` | 文件驱动（local / minio / oss） | `cool/coolfile` |
 | `cool-tools` | CLI 脚手架 | `cool-tools/` |
-| `apps/base` | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志 | `apps/base` |
-| `modules/demo` | CRUD 示范 | `modules/demo` |
-| `modules/dict` | 字典 | `modules/dict` |
-| `modules/space` | 文件空间 | `modules/space` |
-| `modules/task` | 定时任务 | `modules/task` |
-| `server` | 配置加载、服务装配、优雅退出 | `internal/cmd` |
+| `apps/base` | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志微服务 | `modules/base` |
+| `apps/demo` | CRUD 示范（lib） | `apps/demo` |
+| `apps/dict` | 字典微服务 | `modules/dict` |
+| `apps/space` | 文件空间微服务 | `modules/space` |
+| `apps/task` | 定时任务微服务 | `modules/task` |
+| `apps/server` | 单体 all-in-one | `internal/cmd` |
 
 ---
 
@@ -283,14 +287,14 @@ cargo test
 | 核心单测（CRUD/JWT/密码/缓存/查询/鉴权/sa-token） | `cool-core/src/**` | 28 |
 | 安全回归（注入/越权/token/路径穿越） | `cool-core/tests/security_regression.rs` | 8 |
 | 文件驱动（local 回环 / 路径穿越 / URL） | `cool-file` | 6 |
-| 任务调度器（cron 解析 / @every / 描述符） | `modules/task/src/scheduler.rs` | 6 |
+| 任务调度器（cron 解析 / @every / 描述符） | `apps/task/src/scheduler.rs` | 6 |
 | 分布式函数（注册表 / 解析 / master） | `cool-func` | 4 |
 | base 登录集成（验证码/token/改密） | `apps/base/tests/` | 3 |
-| 配置解析（camelCase 绑定） | `server/src/config.rs` | 3 |
-| demo CRUD 集成 | `modules/demo/tests/` | 2 |
-| task 集成（日志剪枝） | `modules/task/tests/` | 2 |
-| dict 递归删除 / 聚合 | `modules/dict/tests/` | 1 |
-| 模型列元信息 | `modules/demo` | 1 |
+| 配置解析（camelCase 绑定） | `apps/server/src/config.rs` | 3 |
+| demo CRUD 集成 | `apps/demo/tests/` | 2 |
+| task 集成（日志剪枝） | `apps/task/tests/` | 2 |
+| dict 递归删除 / 聚合 | `apps/dict/tests/` | 1 |
+| 模型列元信息 | `apps/demo` | 1 |
 
 集成验收（本机已跑通）：grpcurl 全模块 23/23、Redis pub/sub 分布式函数、sa-token 登录链路。
 

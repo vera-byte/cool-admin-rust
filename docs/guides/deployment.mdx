@@ -37,8 +37,8 @@ RUN cargo build --release -p server
 FROM debian:bookworm-slim
 WORKDIR /app
 COPY --from=builder /src/target/release/cool-admin-rust /app/
-COPY manifest/config/config.yaml /app/manifest/config/config.yaml
-COPY migrations /app/migrations
+COPY apps/server/manifest/config.yaml /app/manifest/config/config.yaml
+COPY apps /app/apps
 EXPOSE 8001
 ENTRYPOINT ["/app/cool-admin-rust"]
 ```

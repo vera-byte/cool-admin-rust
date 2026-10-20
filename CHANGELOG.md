@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.3.0 (2026-10-21)
+
+### 架构演进：apps/ 微服务化
+
+**目录重构**：`modules/` + `services/` 合并为 `apps/`，每个应用完全自包含。
+
+```text
+apps/<name>/ = proto/ + manifest/ + migrations/ + src(lib+bin)
+```
+
+| 变更 | 说明 |
+| --- | --- |
+| `apps/` | 业务应用单元（base/dict/space/task/demo/server） |
+| `crates/` | 只保留基础库（cool-proto/core/db/func/file/micro/tools） |
+| `proto/` | 仅存共享契约（common.v1 / internal.v1） |
+| 包名 | `mod-*` → `app-*` |
+| proto 归位 | `apps/<name>/proto/<pkg>/v1/`，cool-proto 聚合生成 |
+| manifest 归位 | `apps/<name>/manifest/config.yaml` |
+| migrations 归位 | `apps/<name>/migrations/`，版本号分段（base=10xx/demo=20xx/dict=30xx/space=40xx/task=50xx） |
+
+### 微服务架构
+
+- `base-service :8001` / `dict-service :8002` / `space-service :8003` / `task-service :8004`
+- sa-token **分布式会话**：共享 Redis 登录态，base 登录 token 全服务可用
+- **服务凭证**：`x-service-id` + `x-service-secret`（DistributedSessionManager）
+- 单体 `cool-admin-rust` 保留，与微服务共享同一套业务代码
+
+### 迁移平滑升级
+
+- 各应用 Migrator 启用 `set_ignore_missing(true)`
+- **已有数据库无需清理**：旧版本记录（1–6）自动忽略，新版本号（1001+）追加执行
+- 表结构 `CREATE TABLE IF NOT EXISTS`、种子 `WHERE NOT EXISTS` 幂等安全
+
+### 文档
+
+- Mintlify 文档全面对齐 apps/ 结构
+- 新增「微服务架构」「数据库迁移」章节
+
+### 验收
+
+- 64 测试全绿、clippy 零告警、文档零失效链接
+- 4 微服务独立启动 + 跨服务分布式会话验证通过
+- 迁移平滑升级实测：旧记录 1-6 保留、新 1001+ 追加、服务正常
+
+---
+
 ## 0.2.0 (2026-05-28)
 
 ### 变更

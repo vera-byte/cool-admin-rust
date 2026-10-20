@@ -3,7 +3,14 @@ title: "配置"
 description: "config.yaml 结构与环境变量覆盖"
 ---
 
-配置文件位于 `manifest/config/config.yaml`，支持 **camelCase** 字段命名（与 cool-admin-go 对齐）。
+配置文件**按应用归属**，支持 **camelCase** 字段命名（与 cool-admin-go 对齐）：
+
+| 应用 | 配置路径 |
+| --- | --- |
+| 微服务（base/dict/space/task） | `apps/<name>/manifest/config.yaml` |
+| 单体 | `apps/server/manifest/config.yaml` |
+
+通过 `MICRO_CONFIG` 环境变量指定加载路径。
 
 ## 配置结构
 
@@ -85,7 +92,7 @@ COOL_REDIS__COOL__ADDRESS=redis:6379 \
 也可指定配置文件路径：
 
 ```bash
-COOL_CONFIG=/path/to/config.yaml ./target/release/cool-admin-rust
+MICRO_CONFIG=apps/base/manifest/config.yaml ./target/release/base-service
 ```
 
 ## Redis 模式

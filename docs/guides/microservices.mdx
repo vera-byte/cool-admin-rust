@@ -185,9 +185,9 @@ grpcurl -H "x-service-id: task-service" -H "x-service-secret: micro-secret-task-
 | 模式 | 二进制 | 适用场景 |
 | --- | --- | --- |
 | 单体 | `apps/server` → `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
-| 微服务 | `services/*-service` 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
+| 微服务 | `apps/base|dict|space|task` 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
 
-两种模式共享同一套 `modules/*` 业务代码与 sa-token 鉴权实现。
+两种模式共享同一套 `apps/*` 业务代码与 sa-token 鉴权实现。
 
 <Note>
   微服务模式下 Redis 为**必需**（分布式会话依赖）；单体模式 Redis 可选（回退内存）。
