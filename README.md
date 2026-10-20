@@ -1,6 +1,8 @@
 # CoolAdminRust
 
 > CoolAdminGo 的 Rust 重写版：**不再使用 Web 框架，对外统一 gRPC**。
+
+📚 **完整文档（Mintlify）**：见 [`docs/`](./docs) 目录，本地预览 `cd docs && mint dev`。
 > 完整实现方案见 [RUST_IMPLEMENTATION_PLAN.md](../cool-admin-go/RUST_IMPLEMENTATION_PLAN.md)（决策 D1–D5 已锁定）。
 
 | | |
