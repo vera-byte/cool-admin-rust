@@ -259,7 +259,7 @@ COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
 | `cool-func` | 分布式函数（注册表 / master 选举 / Redis pub/sub） | `cool/func.go` |
 | `cool-file` | 文件驱动（local / minio / oss） | `cool/coolfile` |
 | `cool-tools` | CLI 脚手架 | `cool-tools/` |
-| `modules/base` | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志 | `modules/base` |
+| `apps/base` | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志 | `apps/base` |
 | `modules/demo` | CRUD 示范 | `modules/demo` |
 | `modules/dict` | 字典 | `modules/dict` |
 | `modules/space` | 文件空间 | `modules/space` |
@@ -285,7 +285,7 @@ cargo test
 | 文件驱动（local 回环 / 路径穿越 / URL） | `cool-file` | 6 |
 | 任务调度器（cron 解析 / @every / 描述符） | `modules/task/src/scheduler.rs` | 6 |
 | 分布式函数（注册表 / 解析 / master） | `cool-func` | 4 |
-| base 登录集成（验证码/token/改密） | `modules/base/tests/` | 3 |
+| base 登录集成（验证码/token/改密） | `apps/base/tests/` | 3 |
 | 配置解析（camelCase 绑定） | `server/src/config.rs` | 3 |
 | demo CRUD 集成 | `modules/demo/tests/` | 2 |
 | task 集成（日志剪枝） | `modules/task/tests/` | 2 |

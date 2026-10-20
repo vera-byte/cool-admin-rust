@@ -80,18 +80,29 @@ graph TD
 
 详见 [微服务架构](/guides/microservices)。
 
-## 模块内部结构
+## 应用内部结构
 
-每个业务模块遵循统一的三层模式（对齐 cool-admin-go）：
+每个应用完全自包含（对齐 cool-admin-go 三层模式 + 微服务自治）：
 
 ```text
-crates/modules/<name>/
+apps/<name>/
+├── proto/<pkg>/v1/   # 自有 gRPC 契约
+├── manifest/         # 自有配置 config.yaml
+├── migrations/       # 自有数据库迁移（版本号全局唯一）
 ├── src/
-│   ├── model/        # Model 实现（表名 + 列元信息）
-│   ├── service/      # CrudService 实现 + 业务钩子
-│   └── handler/      # gRPC Service 实现
+│   ├── lib.rs        # 业务模块（Model / Service / Handler）
+│   ├── main.rs       # 微服务入口（lib + bin 双目标）
+│   ├── model/
+│   ├── service/
+│   └── handler/
 └── tests/            # 集成测试
 ```
+
+<Note>
+  迁移版本号分段管理（base=10xx / demo=20xx / dict=30xx / space=40xx / task=50xx），
+  配合 `ignore_missing` 实现多应用共享数据库的平滑升级。
+  详见 [数据库迁移](/guides/migrations)。
+</Note>
 
 <Tip>
   新增模块可用 `cool-tools module <name>` 一键生成骨架。

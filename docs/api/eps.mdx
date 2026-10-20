@@ -59,7 +59,7 @@ grpcurl -H "$H" -d '{}' localhost:8001 base.v1.BaseOpenService/EpsApp
 服务启动时由 `server/eps.rs` 全量登记：
 
 ```rust
-// crates/server/src/eps.rs
+// apps/server/src/eps.rs
 pub fn register_all() {
     use cool_core::eps::register_module;
 

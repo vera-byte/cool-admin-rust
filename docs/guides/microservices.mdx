@@ -137,7 +137,7 @@ MICRO_CONFIG=apps/task/manifest/config.yaml ./target/debug/task-service
 ```
 
 <Note>
-  不传 `MICRO_CONFIG` 时默认读取 `manifest/config/micro.yaml`；
+  不传 `MICRO_CONFIG` 时默认读取 `apps/<name>/manifest/config.yaml`；
   各应用推荐将配置置于 `apps/<name>/manifest/config.yaml` 并通过环境变量指定。
 </Note>
 </CodeGroup>
@@ -184,7 +184,7 @@ grpcurl -H "x-service-id: task-service" -H "x-service-secret: micro-secret-task-
 
 | 模式 | 二进制 | 适用场景 |
 | --- | --- | --- |
-| 单体 | `services/server` → `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
+| 单体 | `apps/server` → `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
 | 微服务 | `services/*-service` 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
 
 两种模式共享同一套 `modules/*` 业务代码与 sa-token 鉴权实现。
