@@ -118,7 +118,7 @@ anyhow = "1"
 fn main() {
     tracing_subscriber::fmt().init();
     tracing::info!("hello from cool-admin-rust project");
-    // TODO: 装配 grpc 服务（参考 services/server/src/main.rs）
+    // TODO: 装配 grpc 服务（参考 apps/server/src/main.rs）
 }
 "#,
     )?;

@@ -10,7 +10,7 @@ use tracing::{info, warn};
 /// 当前仅支持 MySQL；pgsql/sqlite 以 feature 扩展（见方案 §8）
 pub type DbPool = Pool<MySql>;
 
-/// 数据库连接配置（对齐 manifest/config/config.yaml 的 database.default）
+/// 数据库连接配置（对齐 apps/<name>/manifest/config.yaml 的 database.default）
 #[derive(Debug, Clone)]
 pub struct DbConfig {
     pub host: String,

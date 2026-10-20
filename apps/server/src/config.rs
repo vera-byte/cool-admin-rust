@@ -1,4 +1,4 @@
-//! 配置加载：manifest/config/config.yaml + 环境变量覆盖（COOL_ 前缀）。
+//! 配置加载：apps/server/manifest/config.yaml + 环境变量覆盖（COOL_ 前缀）。
 //!
 //! YAML 为 camelCase 拼写（与 cool-admin-go 对齐），结构体字段用 rename/alias 绑定，
 //! 避免 config-rs 静默落到默认值。
@@ -314,7 +314,7 @@ fn default_oss_location() -> String {
 // ---------- loader ----------
 
 impl AppConfig {
-    /// 默认配置文件路径：`manifest/config/config.yaml`（相对当前工作目录）
+    /// 默认配置文件路径：`manifest/config/config.yaml`（相对当前工作目录，单体模式）
     pub fn default_path() -> PathBuf {
         PathBuf::from("manifest/config/config.yaml")
     }

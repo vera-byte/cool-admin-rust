@@ -33,10 +33,12 @@ apps/<name>/ = proto/ + manifest/ + migrations/ + src(lib+bin)
 - **已有数据库无需清理**：旧版本记录（1–6）自动忽略，新版本号（1001+）追加执行
 - 表结构 `CREATE TABLE IF NOT EXISTS`、种子 `WHERE NOT EXISTS` 幂等安全
 
-### 文档
+### 文档与工程清理
 
 - Mintlify 文档全面对齐 apps/ 结构
 - 新增「微服务架构」「数据库迁移」章节
+- 代码注释 / 默认路径 / Dockerfile 残留路径统一为 apps/ 布局
+- cool-tools 脚手架模板、cool-micro 配置默认路径同步修正
 
 ### 验收
 

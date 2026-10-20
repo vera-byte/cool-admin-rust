@@ -159,10 +159,10 @@ fn default_mode() -> String {
 
 impl MicroConfig {
     pub fn default_path() -> PathBuf {
-        PathBuf::from("manifest/config/micro.yaml")
+        PathBuf::from("manifest/config/config.yaml")
     }
 
-    /// 加载配置；`MICRO_CONFIG` 可指定路径；`COOL_*`/`MICRO_*` 环境变量覆盖。
+    /// 加载配置；`MICRO_CONFIG` 可指定路径（推荐 `apps/<name>/manifest/config.yaml`）；`MICRO_*` 环境变量覆盖。
     pub fn load(path: Option<&Path>) -> Result<Self> {
         let path = path
             .map(|p| p.to_path_buf())

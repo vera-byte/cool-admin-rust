@@ -10,7 +10,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /src/target/release/cool-admin-rust /app/cool-admin-rust
-COPY manifest/config/config.yaml /app/manifest/config/config.yaml
-COPY migrations /app/migrations
+COPY apps/server/manifest/config.yaml /app/manifest/config/config.yaml
+COPY apps /app/apps
 EXPOSE 8001
 ENTRYPOINT ["/app/cool-admin-rust"]
