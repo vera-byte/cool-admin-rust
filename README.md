@@ -8,7 +8,7 @@
 | 协议 | gRPC（tonic 0.12 + prost 0.13），启用 Server Reflection |
 | 运行时 | tokio |
 | 数据库 | SQLx（MySQL）+ `migrations/` SQL 迁移 |
-| 状态 | **M0–M5 已完成**（含安全回归 / 部署 / CHANGELOG） |
+| 状态 | **M0–M5 + sa-token 鉴权已完成** |
 
 ---
 
@@ -99,14 +99,27 @@ grpcurl -plaintext -d '{}' localhost:8001 internal.v1.InternalService/Health
 
 决策 **D1**：各 RPC 使用 **typed data**（`HelloRes { code, message, HelloData data }`），不用 `google.protobuf.Any`。
 
-### 3.2 中间件链
+### 3.2 鉴权架构（sa-token）
+
+登录与权限由 **[sa-token-rust](https://github.com/sa-tokens/sa-token-rust)**
+的 `sa-token-plugin-tonic` 承担（取代自研 JWT + AuthLayer）：
 
 ```
-请求 → LoggingLayer（耗时/状态） → AuthLayer（白名单/Bearer） → gRPC Handler
+请求 → LoggingLayer → SaTokenGrpcLayer(PathAuthConfig) → gRPC Handler
+                                ↓
+                    StpUtil 会话 / 权限 / 角色
 ```
 
-- **AuthLayer**：读取 gRPC 方法路径 `:path`；白名单（`internal.v1.InternalService/*`、reflection）直接放行；其余要求 `authorization: Bearer <token>`。
-- M2 起接入 JWT / 登录缓存 / 数据权限（对齐 Go 版 `modules/base`）。
+| 能力 | 实现 |
+|---|---|
+| 登录会话 | `StpUtil::login(user_id)` → UUID 令牌 |
+| per-RPC 鉴权 | `PathAuthConfig`：`/base.v1.**` 等受保护，登录/验证码/健康检查 exclude |
+| 取登录 ID | `get_login_id_from_request(&req)` |
+| 权限/角色 | 登录时 `set_permissions` / `set_roles`；handler 内 `check_permission` / `check_role` |
+| 登出 | `StpUtil::logout_by_login_id` |
+| Token 读取 | `satoken` → `authorization: Bearer x`（自动识别） |
+
+公开接口白名单：`Captcha` / `Login` / `RefreshToken` / `internal.*`；其余要求有效会话。
 
 ### 3.3 通用 CRUD 引擎（M1）
 
@@ -279,6 +292,7 @@ cargo test
 | **M3** | dict / space / task / 分布式函数（Redis pub/sub）/ 文件存储（local/minio/oss） | ✅ |
 | **M4** | EPS 元数据、部门数据范围、cool-tools CLI、文档 | ✅ |
 | **M5** | 安全回归、部署（Dockerfile/compose/Envoy）、CHANGELOG、gRPC-Web | ✅ |
+| **sa-token** | 登录/会话/权限接入 `sa-token-plugin-tonic` | ✅ |
 
 ---
 

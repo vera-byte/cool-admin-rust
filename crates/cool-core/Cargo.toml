@@ -30,6 +30,8 @@ md5 = "0.7"
 rand = "0.8"
 once_cell = "1"
 redis = { workspace = true }
+sa-token-plugin-tonic = { workspace = true }
+sa-token-core = { workspace = true }
 
 [dev-dependencies]
 cool-file = { workspace = true }

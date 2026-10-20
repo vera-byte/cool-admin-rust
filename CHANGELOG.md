@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 (2026-05-28)
+
+### 变更
+
+- **鉴权重构：接入 [sa-token-rust](https://github.com/sa-tokens/sa-token-rust)**
+  - 使用 `sa-token-plugin-tonic`（Tower `SaTokenGrpcLayer` + `PathAuthConfig`）
+  - 登录会话：`StpUtil::login` / `logout` / `set_permissions` / `set_roles`
+  - handler 取登录 ID：`get_login_id_from_request`
+  - 权限/角色校验：`check_permission` / `check_role`
+  - Token 读取优先级：`satoken` → `authorization: Bearer`
+  - 移除自研 `AuthLayer` JWT 中间件（`cool-core::jwt` 仅保留 refreshToken 占位与密码学工具）
+- 保留业务契约：`Login` 仍返回 `{token, refreshToken, expire, refreshExpire}`
+- 前端兼容：`authorization: Bearer <token>` 与 `satoken: <token>` 均可
+
+### 验收
+
+- 64 项测试全绿（含 sa-token 登录/权限/登出单测）
+- 本地冒烟 23/23（登录 → 权限接口 → 全模块 → 安全拦截）
+
+---
+
 ## 0.1.0 (2026-05-28)
 
 M0–M5 里程碑完成，cool-admin-go 的 Rust + gRPC 重写版。

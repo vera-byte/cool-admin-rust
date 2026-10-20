@@ -20,6 +20,7 @@ mod-space = { workspace = true }
 mod-task = { workspace = true }
 cool-func = { workspace = true }
 cool-file = { workspace = true }
+sa-token-plugin-tonic = { workspace = true }
 
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

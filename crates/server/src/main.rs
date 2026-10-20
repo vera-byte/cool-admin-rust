@@ -14,7 +14,7 @@ use anyhow::{Result, bail};
 use tonic::transport::Server;
 use tracing::{error, info};
 
-use cool_core::{AuthLayer, LoggingLayer, init_tracing};
+use cool_core::{LoggingLayer, init_tracing};
 use cool_proto::REFLECTION_DESCRIPTOR;
 use cool_proto::base::v1::base_comm_service_server::BaseCommServiceServer;
 use cool_proto::base::v1::base_open_service_server::BaseOpenServiceServer;
@@ -47,6 +47,14 @@ async fn main() -> Result<()> {
 
     init_tracing(&cfg.server.log_level);
     eps::register_all();
+
+    // sa-token 初始化（会话/权限）
+    let sa_cfg = cool_core::satoken::SaTokenConfig {
+        timeout: cfg.modules.base.jwt.expire() as i64,
+        token_name: "satoken".into(),
+        enable: cfg.authority_enabled(),
+    };
+    let sa_state = cool_core::satoken::init(&sa_cfg);
 
     info!(mode = %cfg.cool.mode, addr = %cfg.server.address, "starting cool-admin-rust");
     info!(instance = cool_core::instance_id(), "instance id");
@@ -131,10 +139,13 @@ async fn main() -> Result<()> {
         state: state.clone(),
     });
 
-    // tower 层：后添加的更靠外。请求流：Logging → Auth → handler
-    let jwt_cfg2 = jwt_cfg.clone();
+    // tower 层：后添加的更靠外。请求流：Logging → SaTokenGrpcLayer → handler
+    let sa_layer = sa_token_plugin_tonic::SaTokenGrpcLayer::with_path_auth(
+        sa_state,
+        cool_core::satoken::default_path_config(),
+    );
     let mut router = Server::builder()
-        .layer(AuthLayer::new(cfg.authority_enabled(), jwt_cfg))
+        .layer(sa_layer)
         .layer(LoggingLayer)
         .add_service(internal);
 
@@ -152,7 +163,7 @@ async fn main() -> Result<()> {
         let base = mod_base::build_services(
             pool.clone(),
             mod_base::BaseConfig {
-                jwt: jwt_cfg2.clone(),
+                jwt: jwt_cfg.clone(),
                 authority_enable: cfg.authority_enabled(),
             },
         );

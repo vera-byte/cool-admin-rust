@@ -15,6 +15,7 @@ pub mod password;
 pub mod query;
 pub mod repo;
 pub mod response;
+pub mod satoken;
 
 pub use auth::{AUTH_WHITELIST, AuthLayer, AuthUser};
 pub use cache::{CacheStore, get_or_set as cache_get_or_set};
@@ -27,6 +28,7 @@ pub use model::{COL_ID, ColumnMeta, FieldMap, Model, base_columns};
 pub use query::{EqMap, QueryInput, QueryOp, safe_order_by};
 pub use repo::{CrudConfig, CrudRepo, PageResult, eq_map};
 pub use response::{CODE_FAIL, CODE_SUCCESS, fail_code, ok_code};
+pub use satoken::{SaTokenConfig, login_id_from_request};
 
 /// 运行实例 ID（对齐 Go 版 ProcessFlag）
 pub fn instance_id() -> &'static str {

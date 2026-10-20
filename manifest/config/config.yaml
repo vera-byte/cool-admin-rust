@@ -49,7 +49,7 @@ modules:
       sso: false
       secret: "cool-base88776655"
       token:
-        expire: 10
+        expire: 3600
         refreshExpire: 1296000
     middleware:
       authority:

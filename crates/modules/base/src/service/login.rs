@@ -10,8 +10,9 @@
 use base64::Engine;
 use cool_core::cache;
 use cool_core::error::{CoolError, CoolResult};
-use cool_core::jwt::{self, JwtConfig, TokenResult};
+use cool_core::jwt::TokenResult;
 use cool_core::password;
+use cool_core::satoken;
 use rand::Rng;
 use sqlx::{MySql, Pool, Row};
 use std::time::Duration;
@@ -19,7 +20,10 @@ use tracing::{info, warn};
 
 pub struct LoginService {
     pool: Pool<MySql>,
-    jwt: JwtConfig,
+    /// 访问 token 有效期（秒），用于响应 expire 字段
+    expire: u64,
+    /// 刷新 token 有效期（秒）
+    refresh_expire: u64,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -39,12 +43,12 @@ pub struct UserRow {
 }
 
 impl LoginService {
-    pub fn new(pool: Pool<MySql>, jwt: JwtConfig) -> Self {
-        Self { pool, jwt }
-    }
-
-    pub fn jwt_config(&self) -> &JwtConfig {
-        &self.jwt
+    pub fn new(pool: Pool<MySql>, expire: u64, refresh_expire: u64) -> Self {
+        Self {
+            pool,
+            expire,
+            refresh_expire,
+        }
     }
 
     /// 图形验证码（SVG + base64，对齐 Go 实现）
@@ -53,7 +57,13 @@ impl LoginService {
             let mut rng = rand::thread_rng();
             (0..4).map(|_| rng.gen_range(0..10).to_string()).collect()
         };
-        let captcha_id = format!("cap-{:x}-{}", jwt::Claims::now_secs(), &code);
+        let captcha_id = {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            format!("cap-{now:x}-{}", &code)
+        };
         let svg = format!(
             r##"<svg width="150" height="50" xmlns="http://www.w3.org/2000/svg"><text x="75" y="25" text-anchor="middle" font-size="25" fill="#fff">{code}</text></svg>"##
         );
@@ -133,18 +143,17 @@ impl LoginService {
         self.issue_tokens(&user, &role_ids).await
     }
 
-    /// 刷新 token
+    /// 刷新 token（基于 refreshToken 缓存 + passwordVersion 校验）
     pub async fn refresh_token(&self, token: &str) -> CoolResult<TokenResult> {
-        let claims = jwt::verify(&self.jwt, token)?;
-        if !claims.is_refresh {
-            return Err(CoolError::unauthenticated("refreshToken已失效,请重新登录~"));
-        }
-        if claims.user_id <= 0 {
-            return Err(CoolError::unauthenticated("refreshToken已失效,请重新登录~"));
-        }
+        // 从缓存反查：refresh token 属于哪个用户
+        // 简化：token 形如 rt_<uid>_<expire>_<hex>，解析 uid
+        let uid = token
+            .strip_prefix("rt_")
+            .and_then(|s| s.split('_').next())
+            .and_then(|s| s.parse::<i64>().ok())
+            .ok_or_else(|| CoolError::unauthenticated("refreshToken已失效,请重新登录~"))?;
 
-        // 校验缓存中的 refreshToken
-        let cache_key = format!("admin:token:refresh:{}", claims.user_id);
+        let cache_key = format!("admin:token:refresh:{uid}");
         if cache::get(&cache_key).await.unwrap_or(None).as_deref() != Some(token) {
             return Err(CoolError::unauthenticated("refreshToken已失效,请重新登录~"));
         }
@@ -154,7 +163,7 @@ impl LoginService {
              nickName as nickname, headImg as headimg, phone, email, status, remark \
              FROM base_sys_user WHERE id = ? AND status = 1 AND deleteTime IS NULL LIMIT 1",
         )
-        .bind(claims.user_id)
+        .bind(uid)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| {
@@ -182,8 +191,10 @@ impl LoginService {
         self.issue_tokens(&user, &role_ids).await
     }
 
-    /// 退出：清除缓存
+    /// 退出：sa-token 会话登出 + 清缓存
     pub async fn logout(&self, user_id: i64) {
+        let login_id = user_id.to_string();
+        let _ = satoken::logout_by_login_id(&login_id).await;
         let _ = cache::remove(&format!("admin:token:{user_id}")).await;
         let _ = cache::remove(&format!("admin:token:refresh:{user_id}")).await;
         let _ = cache::remove(&format!("admin:perms:{user_id}")).await;
@@ -291,30 +302,65 @@ impl LoginService {
     }
 
     async fn issue_tokens(&self, user: &UserRow, role_ids: &[String]) -> CoolResult<TokenResult> {
-        let tokens =
-            jwt::issue_tokens(&self.jwt, user.id, &user.username, role_ids, user.passwordv)?;
+        // sa-token 会话（登录）
+        let login_id = user.id.to_string();
+        let token = satoken::login(&login_id).await?;
 
-        // 缓存 refreshToken / passwordVersion（M2 内存，M3 换 Redis）
-        let ttl = Duration::from_secs(self.jwt.refresh_expire.max(60));
+        // 写入权限 / 角色（供 check_permission / check_role 使用）
+        let perms = self.perms_for_roles(role_ids).await.unwrap_or_default();
+        let _ = satoken::set_permissions(&login_id, perms).await;
+        let _ = satoken::set_roles(&login_id, role_ids.to_vec()).await;
+
+        // refreshToken：前端契约字段，缓存管理（登出/改密失效）
+        let refresh = cool_core::jwt::issue_refresh_placeholder(&login_id, self.refresh_expire);
+        let ttl = Duration::from_secs(self.refresh_expire.max(60));
         let _ = cache::set(
             &format!("admin:token:refresh:{}", user.id),
-            tokens.refresh_token.clone(),
+            refresh.clone(),
             ttl,
         )
         .await;
-        let _ = cache::set(
-            &format!("admin:token:{}", user.id),
-            tokens.token.clone(),
-            ttl,
-        )
-        .await;
+        let _ = cache::set(&format!("admin:token:{}", user.id), token.clone(), ttl).await;
         let _ = cache::set(
             &format!("admin:passwordVersion:{}", user.id),
             user.passwordv.to_string(),
             Duration::ZERO,
         )
         .await;
-        Ok(tokens)
+
+        Ok(TokenResult {
+            expire: self.expire,
+            token,
+            refresh_expire: self.refresh_expire,
+            refresh_token: refresh,
+        })
+    }
+
+    /// 角色 → 权限标识列表（menu.perms）
+    async fn perms_for_roles(&self, role_ids: &[String]) -> CoolResult<Vec<String>> {
+        if role_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let ids: Vec<i64> = role_ids.iter().filter_map(|s| s.parse().ok()).collect();
+        let ph = vec!["?"; ids.len()].join(", ");
+        let sql = format!(
+            "SELECT DISTINCT m.perms FROM base_sys_role_menu rm \
+             JOIN base_sys_menu m ON m.id = rm.menuId \
+             WHERE rm.roleId IN ({ph}) AND rm.deleteTime IS NULL AND m.deleteTime IS NULL"
+        );
+        let mut q = sqlx::query(&sql);
+        for id in &ids {
+            q = q.bind(*id);
+        }
+        let rows = q
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| CoolError::Internal(format!("查询权限失败: {e}")))?;
+        Ok(rows
+            .iter()
+            .filter_map(|r| r.try_get::<String, _>("perms").ok())
+            .filter(|s| !s.is_empty())
+            .collect())
     }
 }
 

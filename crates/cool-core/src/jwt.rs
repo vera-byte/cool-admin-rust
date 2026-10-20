@@ -193,6 +193,16 @@ pub fn remaining_secs(exp: u64) -> i64 {
     exp as i64 - now as i64
 }
 
+/// 生成 refreshToken 占位（随机串，用于前端契约）。
+/// 主鉴权已由 sa-token 会话承担；此值仅做刷新兑换凭证，存于 cache。
+pub fn issue_refresh_placeholder(user_id: &str, expire_secs: u64) -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 24];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    format!("rt_{user_id}_{expire_secs}_{hex}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

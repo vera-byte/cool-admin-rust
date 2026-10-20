@@ -9,8 +9,6 @@ use cool_proto::base::v1::{
 use sqlx::MySqlPool;
 use tonic::{Request, Response, Status};
 
-use cool_core::AuthUser;
-
 use crate::service::UserService;
 use crate::service::login::UserRow;
 
@@ -47,14 +45,15 @@ fn to_proto(u: &UserRow, role_ids: Vec<i64>) -> SysUser {
 #[tonic::async_trait]
 impl BaseSysUserService for BaseSysUserSvc {
     async fn page(&self, req: Request<UserPageReq>) -> Result<Response<UserPageRes>, Status> {
-        let auth = req.extensions().get::<AuthUser>().cloned();
+        let login_id = cool_core::satoken::login_id_from_request(&req)
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(0);
         let r = req.into_inner();
-        let scope = match &auth {
-            Some(u) => {
-                let roles: Vec<i64> = u.role_ids.iter().filter_map(|s| s.parse().ok()).collect();
-                self.users.scope_departments(u.user_id, &roles).await
-            }
-            None => Some(vec![]),
+        let scope = if login_id > 0 {
+            let roles: Vec<i64> = self.users.role_ids(login_id).await.unwrap_or_default();
+            self.users.scope_departments(login_id, &roles).await
+        } else {
+            Some(vec![])
         };
         let f = crate::service::user::UserFilter {
             keyword: Some(r.keyword).filter(|s| !s.is_empty()),
@@ -82,14 +81,15 @@ impl BaseSysUserService for BaseSysUserSvc {
     }
 
     async fn list(&self, req: Request<UserListReq>) -> Result<Response<UserListRes>, Status> {
-        let auth = req.extensions().get::<AuthUser>().cloned();
+        let login_id = cool_core::satoken::login_id_from_request(&req)
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(0);
         let r = req.into_inner();
-        let scope = match &auth {
-            Some(u) => {
-                let roles: Vec<i64> = u.role_ids.iter().filter_map(|s| s.parse().ok()).collect();
-                self.users.scope_departments(u.user_id, &roles).await
-            }
-            None => Some(vec![]),
+        let scope = if login_id > 0 {
+            let roles: Vec<i64> = self.users.role_ids(login_id).await.unwrap_or_default();
+            self.users.scope_departments(login_id, &roles).await
+        } else {
+            Some(vec![])
         };
         let f = crate::service::user::UserFilter {
             keyword: Some(r.keyword).filter(|s| !s.is_empty()),

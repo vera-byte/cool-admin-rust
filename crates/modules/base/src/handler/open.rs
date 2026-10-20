@@ -22,12 +22,16 @@ pub struct BaseOpenSvc {
 impl BaseOpenSvc {
     pub fn new(pool: MySqlPool, cfg: BaseConfig) -> Self {
         Self {
-            login: LoginService::new(pool, cfg.jwt),
+            login: LoginService::new(pool, cfg.jwt.expire, cfg.jwt.refresh_expire),
         }
     }
 }
 
 fn auth_user_id<T>(req: &Request<T>) -> i64 {
+    // 优先 sa-token 注入的登录 ID；回退到自研 AuthUser（兼容期）
+    if let Some(id) = cool_core::satoken::login_id_from_request(req) {
+        return id.parse().unwrap_or(0);
+    }
     req.extensions()
         .get::<AuthUser>()
         .map(|u| u.user_id)

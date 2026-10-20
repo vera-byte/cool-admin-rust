@@ -12,7 +12,6 @@ use sqlx::{MySqlPool, Row};
 use tonic::{Request, Response, Status};
 
 use super::biz_err;
-use cool_core::AuthUser;
 
 pub struct BaseSysMenuSvc {
     pool: MySqlPool,
@@ -314,10 +313,8 @@ impl BaseSysMenuService for BaseSysMenuSvc {
     }
 
     async fn perms(&self, req: Request<MenuPermsReq>) -> Result<Response<MenuPermsRes>, Status> {
-        let user_id = req
-            .extensions()
-            .get::<AuthUser>()
-            .map(|u| u.user_id)
+        let user_id = cool_core::satoken::login_id_from_request(&req)
+            .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0);
         if user_id <= 0 {
             return Err(Status::unauthenticated("未登录"));

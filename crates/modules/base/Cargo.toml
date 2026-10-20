@@ -11,6 +11,7 @@ cool-core = { workspace = true }
 cool-db = { workspace = true }
 cool-file = { workspace = true }
 cool-func = { workspace = true }
+sa-token-plugin-tonic = { workspace = true }
 
 tokio = { workspace = true }
 tonic = { workspace = true }

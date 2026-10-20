@@ -50,6 +50,8 @@ sqlx = { version = "0.8", features = [
 ] }
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 cron = "0.13"
+sa-token-plugin-tonic = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-plugin-tonic", default-features = false, features = ["tonic-012", "memory"] }
+sa-token-core = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-core" }
 tokio-util = { version = "0.7", features = ["rt"] }
 bytes = "1"
 
