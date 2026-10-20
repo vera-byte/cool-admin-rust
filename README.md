@@ -253,9 +253,17 @@ COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
 
 | crate | 职责 | 对应 Go |
 |---|---|---|
-| `cool-proto` | proto 生成代码、`CODE_SUCCESS/CODE_FAIL`、reflection descriptor | — |
-| `cool-core` | `CoolError`、`ok_code/fail_code`、`AuthLayer`、`LoggingLayer`、实例 ID | `cool/` |
+| `cool-proto` | proto 生成代码、`REFLECTION_DESCRIPTOR` | — |
+| `cool-core` | CRUD 引擎、sa-token、错误码、缓存、密码、EPS | `cool/` |
 | `cool-db` | SQLx 池、`migrate!`、探活 | `cool/cooldb` |
+| `cool-func` | 分布式函数（注册表 / master 选举 / Redis pub/sub） | `cool/func.go` |
+| `cool-file` | 文件驱动（local / minio / oss） | `cool/coolfile` |
+| `cool-tools` | CLI 脚手架 | `cool-tools/` |
+| `modules/base` | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志 | `modules/base` |
+| `modules/demo` | CRUD 示范 | `modules/demo` |
+| `modules/dict` | 字典 | `modules/dict` |
+| `modules/space` | 文件空间 | `modules/space` |
+| `modules/task` | 定时任务 | `modules/task` |
 | `server` | 配置加载、服务装配、优雅退出 | `internal/cmd` |
 
 ---
@@ -268,19 +276,23 @@ COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
 cargo test
 ```
 
-当前覆盖 **18 项**：
+当前覆盖 **64 项**：
 
-| 用例 | 位置 | 数量 |
+| 类别 | 位置 | 数量 |
 |---|---|---|
-| 排序白名单 / WHERE 构造 / 注入防护 | `cool-core/src/query.rs` | 6 |
-| 标识符安全 / 列白名单 | `cool-core/src/model.rs` | 2 |
-| 鉴权路径、Bearer、白名单 | `cool-core/src/auth.rs` | 4 |
-| 成功/失败错误码 | `cool-core/src/response.rs` | 1 |
-| 最小 YAML 配置解析 | `server/src/config.rs` | 1 |
-| demo 列元信息 | `modules/demo/src/model/` | 1 |
-| CRUD 全流程（增删改查/唯一/非空/软删/分页/非法列） | `modules/demo/tests/` | 2 |
+| 核心单测（CRUD/JWT/密码/缓存/查询/鉴权/sa-token） | `cool-core/src/**` | 28 |
+| 安全回归（注入/越权/token/路径穿越） | `cool-core/tests/security_regression.rs` | 8 |
+| 文件驱动（local 回环 / 路径穿越 / URL） | `cool-file` | 6 |
+| 任务调度器（cron 解析 / @every / 描述符） | `modules/task/src/scheduler.rs` | 6 |
+| 分布式函数（注册表 / 解析 / master） | `cool-func` | 4 |
+| base 登录集成（验证码/token/改密） | `modules/base/tests/` | 3 |
+| 配置解析（camelCase 绑定） | `server/src/config.rs` | 3 |
+| demo CRUD 集成 | `modules/demo/tests/` | 2 |
+| task 集成（日志剪枝） | `modules/task/tests/` | 2 |
+| dict 递归删除 / 聚合 | `modules/dict/tests/` | 1 |
+| 模型列元信息 | `modules/demo` | 1 |
 
-集成验收（本机已跑通）：grpcurl Add/Page/List/Info/Update/Delete/Welcome + 唯一键拒绝 + ORDER BY 注入忽略。
+集成验收（本机已跑通）：grpcurl 全模块 23/23、Redis pub/sub 分布式函数、sa-token 登录链路。
 
 ---
 

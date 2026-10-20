@@ -14,7 +14,7 @@ CoolAdminRust 是 [CoolAdmin](https://cool-js.com) 系列的 **Rust + gRPC** 后
 
 <CardGroup cols={2}>
   <Card title="纯 gRPC 架构" icon="server" href="/architecture">
-    tonic + prost，15 个 gRPC 服务、70+ RPC，内置 Server Reflection。
+    tonic + prost，14 个业务 gRPC 服务、80+ RPC，内置 Server Reflection。
   </Card>
   <Card title="通用 CRUD 引擎" icon="database" href="/concepts/crud">
     Model / CrudRepo / CrudService 三层抽象，软删除、唯一键、排序白名单开箱即用。
@@ -43,9 +43,9 @@ CoolAdminRust 是 [CoolAdmin](https://cool-js.com) 系列的 **Rust + gRPC** 后
 
 | 维度 | 数量 |
 | --- | --- |
-| gRPC 服务 | 15 |
-| gRPC RPC | 70+ |
-| crate | 11 |
+| gRPC 服务 | 14 业务 + Reflection |
+| gRPC RPC | 82 |
+| crate | 12 |
 | SQL 迁移 | 6 |
 | 测试 | 64 项（含安全回归） |
 

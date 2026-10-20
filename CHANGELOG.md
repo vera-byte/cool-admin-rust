@@ -29,11 +29,11 @@ M0–M5 里程碑完成，cool-admin-go 的 Rust + gRPC 重写版。
 
 | 维度 | 规模 |
 |---|---|
-| gRPC 服务 | 15 个（base/demo/dict/space/task/internal） |
-| gRPC RPC | 70+ |
-| crate | 11（cool-proto/core/db/func/file + 5 modules + server + cool-tools） |
+| gRPC 服务 | 14 个业务服务（base/demo/dict/space/task/internal）+ Reflection |
+| gRPC RPC | 82 |
+| crate | 12（cool-proto/core/db/func/file/tools + 5 modules + server） |
 | SQL 迁移 | 6（demo/base/dict/space/task/conf） |
-| 测试 | 62 项（含 8 项安全回归），clippy 零告警 |
+| 测试 | 64 项（含 8 项安全回归），clippy 零告警 |
 | 本地冒烟 | 23/23 通过（含 Redis pub/sub 分布式函数） |
 
 ### 新增
@@ -78,7 +78,7 @@ M0–M5 里程碑完成，cool-admin-go 的 Rust + gRPC 重写版。
 
 ### 验收记录（本地）
 
-- `cargo test`：62 项全绿（core 26 + security 8 + 集成/单测 28）
+- `cargo test`：64 项全绿（core 28 + security 8 + 集成/单测 28）
 - `cargo clippy --workspace`：零告警；`cargo fmt --all` 已格式化
 - 本地部署冒烟 23/23：服务发现 / 登录 / 安全拦截 / 用户角色部门菜单 / 字典 / 空间 / 任务 / 文件上传 / EPS / demo
 - Redis pub/sub：`PUBLISH cool:func` 触发 `TaskTest` 执行成功

@@ -7,16 +7,18 @@ description: "单元测试、集成测试与安全回归"
 
 | 类别 | 数量 | 位置 |
 | --- | --- | --- |
-| 核心单测（CRUD/JWT/密码/缓存/查询） | 28 | `crates/cool-core` |
+| 核心单测（CRUD/JWT/密码/缓存/查询/鉴权/sa-token） | 28 | `crates/cool-core` |
 | 安全回归 | 8 | `crates/cool-core/tests/security_regression.rs` |
-| sa-token 集成 | 2 | `crates/cool-core/src/satoken.rs` |
-| base 登录集成 | 3 | `crates/modules/base/tests/` |
+| 文件存储（local 回环 / 路径穿越 / URL 构造） | 6 | `crates/cool-file` |
+| 任务调度器（cron 解析 / @every / 描述符） | 6 | `crates/modules/task/src/scheduler.rs` |
+| 分布式函数（注册表 / 解析 / master 门闩） | 4 | `crates/cool-func` |
+| base 登录集成（验证码 / token / 改密失效） | 3 | `crates/modules/base/tests/` |
+| 配置解析（camelCase 绑定 / 真实配置加载） | 3 | `crates/server/src/config.rs` |
 | demo CRUD 集成 | 2 | `crates/modules/demo/tests/` |
-| dict 集成 | 1 | `crates/modules/dict/tests/` |
-| task 集成 | 2 | `crates/modules/task/tests/` |
-| 文件存储 | 6 | `crates/cool-file` |
-| 分布式函数 | 4 | `crates/cool-func` |
-| 配置解析 | 3 | `crates/server` |
+| task 集成（日志剪枝 / 递归流程） | 2 | `crates/modules/task/tests/` |
+| dict 集成（聚合 / 递归删除） | 1 | `crates/modules/dict/tests/` |
+| demo 模型列元信息 | 1 | `crates/modules/demo/src/model/` |
+| **合计** | **64** | |
 
 ## 运行测试
 
