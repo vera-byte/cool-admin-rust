@@ -26,9 +26,11 @@ fn migrations_dir() -> std::path::PathBuf {
 /// 执行本模块数据库迁移。
 /// 版本号全局唯一，见 migrations/ 文件名前缀。
 pub async fn migrate(pool: &sqlx::MySqlPool) -> cool_core::CoolResult<()> {
-    let migrator = sqlx::migrate::Migrator::new(migrations_dir())
+    let mut migrator = sqlx::migrate::Migrator::new(migrations_dir())
         .await
         .map_err(|e| cool_core::CoolError::Internal(format!("加载迁移失败: {}", e)))?;
+    // 允许 _sqlx_migrations 中存在其他模块的迁移记录（多 migrator 共存）
+    migrator.set_ignore_missing(true);
     migrator
         .run(pool)
         .await
