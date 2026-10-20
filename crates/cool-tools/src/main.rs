@@ -94,8 +94,7 @@ fn init_project(name: &str, dir: &Path) -> Result<()> {
     // workspace Cargo.toml
     std::fs::write(
         root.join("Cargo.toml"),
-        format!(
-            r#"[workspace]
+        r#"[workspace]
 resolver = "2"
 members = [
     "crates/*",
@@ -108,20 +107,19 @@ edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
-tokio = {{ version = "1", features = ["full"] }}
+tokio = { version = "1", features = ["full"] }
 tonic = "0.12"
 tonic-reflection = "0.12"
 tonic-build = "0.12"
 prost = "0.13"
-sqlx = {{ version = "0.8", features = ["runtime-tokio", "tls-rustls", "mysql", "chrono", "migrate"] }}
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "mysql", "chrono", "migrate"] }
 tracing = "0.1"
-tracing-subscriber = {{ version = "0.3", features = ["env-filter"] }}
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
-serde = {{ version = "1", features = ["derive"] }}
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-chrono = {{ version = "0.4", features = ["serde"] }}
-"#
-        ),
+chrono = { version = "0.4", features = ["serde"] }
+"#,
     )?;
 
     // 共享 proto
