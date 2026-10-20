@@ -98,6 +98,19 @@ flowchart LR
     F -->|无效| E
 ```
 
+## 目录布局
+
+```text
+crates/      # 基础库：cool-proto / cool-core / cool-db / cool-func / cool-file / cool-micro
+modules/     # 业务模块：base / demo / dict / space / task（library crate）
+services/    # 可执行服务：server（单体）+ base-service / dict-service / space-service / task-service
+```
+
+<Note>
+  `modules/` 是 library crate（业务逻辑），`services/` 是 binary crate（进程入口），
+  `crates/` 只放可复用基础库 —— 三者职责清晰分离。
+</Note>
+
 ## 启动各服务
 
 <CodeGroup>
@@ -160,8 +173,8 @@ grpcurl -H "x-service-id: task-service" -H "x-service-secret: micro-secret-task-
 
 | 模式 | 二进制 | 适用场景 |
 | --- | --- | --- |
-| 单体 | `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
-| 微服务 | `base-service` 等 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
+| 单体 | `services/server` → `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
+| 微服务 | `services/*-service` 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
 
 两种模式共享同一套 `modules/*` 业务代码与 sa-token 鉴权实现。
 

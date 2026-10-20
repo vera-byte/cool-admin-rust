@@ -42,8 +42,8 @@ enum Commands {
     Module {
         /// 模块名（snake_case）
         name: String,
-        /// 模块所在目录（默认 crates/modules）
-        #[arg(long, default_value = "crates/modules")]
+        /// 模块所在目录（默认 modules）
+        #[arg(long, default_value = "modules")]
         dir: PathBuf,
     },
 }
@@ -118,7 +118,7 @@ anyhow = "1"
 fn main() {
     tracing_subscriber::fmt().init();
     tracing::info!("hello from cool-admin-rust project");
-    // TODO: 装配 grpc 服务（参考 cool-admin-rust/crates/server/src/main.rs）
+    // TODO: 装配 grpc 服务（参考 services/server/src/main.rs）
 }
 "#,
     )?;

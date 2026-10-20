@@ -1,23 +1,26 @@
 [workspace]
 resolver = "2"
 members = [
+    # 基础库
     "crates/cool-proto",
     "crates/cool-core",
     "crates/cool-db",
     "crates/cool-func",
     "crates/cool-file",
-    "crates/modules/demo",
-    "crates/modules/base",
-    "crates/modules/dict",
-    "crates/modules/space",
-    "crates/modules/task",
-    "crates/server",
-    "crates/cool-tools",
     "crates/cool-micro",
-    "crates/services/task-service",
-    "crates/services/space-service",
-    "crates/services/dict-service",
-    "crates/services/base-service",
+    "crates/cool-tools",
+    # 业务模块
+    "modules/base",
+    "modules/demo",
+    "modules/dict",
+    "modules/space",
+    "modules/task",
+    # 可执行服务
+    "services/server",
+    "services/base-service",
+    "services/dict-service",
+    "services/space-service",
+    "services/task-service",
 ]
 
 [workspace.package]
@@ -33,11 +36,11 @@ cool-db = { path = "crates/cool-db" }
 cool-func = { path = "crates/cool-func" }
 cool-file = { path = "crates/cool-file" }
 cool-micro = { path = "crates/cool-micro" }
-mod-demo = { path = "crates/modules/demo" }
-mod-base = { path = "crates/modules/base" }
-mod-dict = { path = "crates/modules/dict" }
-mod-space = { path = "crates/modules/space" }
-mod-task = { path = "crates/modules/task" }
+mod-demo = { path = "modules/demo" }
+mod-base = { path = "modules/base" }
+mod-dict = { path = "modules/dict" }
+mod-space = { path = "modules/space" }
+mod-task = { path = "modules/task" }
 
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }

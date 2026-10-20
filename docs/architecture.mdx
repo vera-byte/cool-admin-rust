@@ -30,30 +30,29 @@ sequenceDiagram
 ```text
 cool-admin-rust/
 ├── proto/                  # .proto 契约（单一事实来源）
-├── crates/
-│   ├── cool-proto/         # proto 生成代码 + Reflection descriptor
-│   ├── cool-core/          # 核心框架
-│   │   ├── crud.rs         #   CrudService trait
-│   │   ├── repo.rs         #   CrudRepo（通用 CRUD）
-│   │   ├── model.rs        #   Model trait / 列白名单
-│   │   ├── query.rs        #   排序白名单 / WHERE 构造
-│   │   ├── satoken.rs      #   sa-token 集成
-│   │   ├── password.rs     #   argon2 + 旧 MD5 升级
-│   │   ├── cache.rs        #   Mem / Redis 缓存
-│   │   └── eps.rs          #   接口权限元数据
-│   ├── cool-db/            # SQLx 连接池 + 迁移
-│   ├── cool-func/          # 分布式函数（Redis pub/sub）
-│   ├── cool-file/          # 文件存储驱动（local/minio/oss）
-│   ├── modules/
-│   │   ├── base/           # 用户/角色/部门/菜单/日志/登录
-│   │   ├── demo/           # CRUD 示范
-│   │   ├── dict/           # 字典
-│   │   ├── space/          # 文件空间
-│   │   └── task/           # 定时任务
-│   ├── cool-tools/         # CLI 脚手架
-│   └── server/             # gRPC 入口
+├── crates/                 # 基础库（可复用）
+│   ├── cool-proto/         #   proto 生成代码 + Reflection descriptor
+│   ├── cool-core/          #   核心框架（CRUD / sa-token / 缓存 / 密码）
+│   ├── cool-db/            #   SQLx 连接池 + 迁移
+│   ├── cool-func/          #   分布式函数（Redis pub/sub）
+│   ├── cool-file/          #   文件存储驱动（local/minio/oss）
+│   ├── cool-micro/         #   微服务脚手架（分布式会话 / 服务鉴权）
+│   └── cool-tools/         #   CLI 脚手架
+├── modules/                # 业务模块（被 services 引用）
+│   ├── base/               #   登录 / 用户 / 角色 / 部门 / 菜单 / 日志
+│   ├── demo/               #   CRUD 示范
+│   ├── dict/               #   字典
+│   ├── space/              #   文件空间
+│   └── task/               #   定时任务
+├── services/               # 可执行服务（独立部署）
+│   ├── server/             #   单体 all-in-one（开发友好）
+│   ├── base-service/       #   base 微服务 :8001
+│   ├── dict-service/       #   dict 微服务 :8002
+│   ├── space-service/      #   space 微服务 :8003
+│   └── task-service/       #   task 微服务 :8004
 ├── migrations/             # SQLx 迁移
-└── manifest/config/        # 配置
+├── manifest/config/        # 配置（config.yaml / micro-*.yaml）
+└── docs/                   # Mintlify 文档
 ```
 
 ## 分层依赖
@@ -62,15 +61,17 @@ cool-admin-rust/
 
 ```mermaid
 graph TD
-    Server[server 入口] --> Modules[业务模块]
-    Server --> CoolCore[cool-core]
-    Modules --> CoolCore
-    Modules --> CoolProto[cool-proto]
-    Modules --> CoolFunc[cool-func]
-    Modules --> CoolFile[cool-file]
-    CoolCore --> CoolDb[cool-db]
-    CoolFunc --> CoolCore
-    CoolFile --> CoolCore
+    Svc[services/* 二进制] --> Modules[modules/* 业务模块]
+    Svc --> Micro[cool-micro 微服务脚手架]
+    Svc --> Core[cool-core]
+    Modules --> Core
+    Modules --> Proto[cool-proto]
+    Modules --> Func[cool-func]
+    Modules --> File[cool-file]
+    Micro --> Core
+    Core --> Db[cool-db]
+    Func --> Core
+    File --> Core
 ```
 
 ## 部署形态
