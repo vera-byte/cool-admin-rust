@@ -14,7 +14,7 @@ use std::task::{Context, Poll};
 use http::{Request, Response, StatusCode};
 use http_body_util::{BodyExt, Empty};
 use sa_token_core::DistributedSessionManager;
-use sa_token_plugin_tonic::SaTokenState;
+use sa_token_plugin_tonic::{SaTokenLoginId, SaTokenState};
 use tonic::body::BoxBody;
 use tower::{Layer, Service};
 
@@ -197,7 +197,8 @@ where
                 .ok();
             if let Some(lid) = login_id {
                 let (mut parts, body) = req.into_parts();
-                parts.extensions.insert(LoginId(lid));
+                // 注入 sa-token 标准 LoginId，供 get_login_id_from_request 读取
+                parts.extensions.insert(SaTokenLoginId(lid));
                 let req = Request::from_parts(parts, body);
                 let fut = inner.call(req);
                 fut.await.map_err(Into::into)
@@ -208,7 +209,3 @@ where
         })
     }
 }
-
-/// 注入的登录 ID
-#[derive(Debug, Clone)]
-pub struct LoginId(pub String);

@@ -1,9 +1,9 @@
 ---
 title: "cool-tools CLI"
-description: "脚手架工具：init / run / build / module"
+description: "脚手架工具：init / run / build / app"
 ---
 
-`cool-tools` 是项目内置的开发工具，对齐 cool-admin-go 的 cool-tools。
+`cool-tools` 是项目内置的开发工具，生成与 **apps/ 微服务架构**一致的骨架。
 
 ## 安装
 
@@ -26,59 +26,96 @@ cargo build --release -p cool-tools
   </Accordion>
 
   <Accordion title="cool-tools init <name>">
-    创建新项目骨架（Cargo.toml / main.rs / config.yaml / README）。
+    创建新项目（apps/ 微服务架构）。
 
     ```bash
     cool-tools init my-project
-    cd my-project && cargo run
+    cd my-project
+    ```
+
+    生成布局：
+
+    ```text
+    my-project/
+    ├── Cargo.toml           # workspace（crates/* + apps/*）
+    ├── proto/common/v1/     # 共享契约
+    ├── proto/internal/v1/
+    ├── crates/              # 基础库目录
+    ├── apps/hello/          # 示例应用（自包含）
+    ├── docs/
+    └── scripts/
     ```
   </Accordion>
 
   <Accordion title="cool-tools run">
-    透传 `cargo run`，开发启动。
+    透传 `cargo run`。
 
     ```bash
     cool-tools run
-    cool-tools run -- --release
+    cool-tools run -p app-base -- --config apps/base/manifest/config.yaml
     ```
   </Accordion>
 
   <Accordion title="cool-tools build">
-    构建（默认 debug，`--release` 发布）。
+    构建（`--release` 发布）。
 
     ```bash
     cool-tools build --release
     ```
   </Accordion>
 
-  <Accordion title="cool-tools module <name>">
-    生成模块骨架（model / service / handler）。
+  <Accordion title="cool-tools app <name>">
+    生成**自包含业务应用**（apps/&lt;name&gt;/）。
 
     ```bash
-    cool-tools module order
+    cool-tools app order
     ```
 
-    生成文件树：
+    生成结构：
 
     ```text
     apps/order/
-    ├── Cargo.toml
-    └── src/
-        ├── lib.rs
-        ├── model/{mod.rs, order.rs}
-        ├── service/mod.rs
-        └── handler/mod.rs
+    ├── proto/order/v1/order.proto   # 自有 gRPC 契约（6 CRUD）
+    ├── manifest/config.yaml         # 自有配置（端口/服务凭证/sa-token）
+    ├── migrations/9001_order.sql    # 自有迁移（版本号 90xx 预留段）
+    ├── src/
+    │   ├── lib.rs                   # 业务模块 + migrate()
+    │   ├── main.rs                  # 微服务入口（分布式会话 + 鉴权层）
+    │   ├── model/                   # Model 实现
+    │   ├── service/                 # CrudService 实现
+    │   └── handler/                 # gRPC Handler
+    └── tests/
     ```
 
-    <Warning>
-      生成后需手动完成三步：加入 workspace members、添加 proto、注册服务。
-    </Warning>
+    启动：
+
+    ```bash
+    MICRO_CONFIG=apps/order/manifest/config.yaml cargo run -p app-order
+    ```
+
+    <Note>
+      workspace 使用 `apps/*` 通配成员，新应用自动纳入；
+      `cool-proto` 自动聚合 `apps/*/proto` 生成代码，无需手动登记。
+    </Note>
   </Accordion>
 </AccordionGroup>
+
+## 应用版本号分段
+
+| 应用 | 版本前缀 |
+| --- | --- |
+| base | 10xx |
+| demo | 20xx |
+| dict | 30xx |
+| space | 40xx |
+| task | 50xx |
+| 自定义应用 | 90xx（脚手架默认） |
+
+详见 [数据库迁移](/guides/migrations)。
 
 ## 版本管理
 
 ```bash
 ./scripts/version.sh          # 查看当前版本
-./scripts/version.sh 0.2.0   # 更新 workspace 版本
+./scripts/version.sh 0.3.0   # 更新 workspace 版本
 ```

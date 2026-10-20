@@ -232,7 +232,7 @@ cool-tools version           # 版本
 cool-tools init my-proj      # 脚手架新项目
 cool-tools run               # cargo run 透传
 cool-tools build --release   # 发布构建
-cool-tools module demo_x     # 生成模块骨架（model/service/handler）
+cool-tools app order         # 生成自包含应用（proto/manifest/migrations/src）
 ```
 
 ### 3.6 配置
