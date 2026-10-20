@@ -1,0 +1,34 @@
+# 微服务配置（base/dict/space/task 各自覆盖 service.*）
+service:
+  id: "dict-service"
+  name: "dict"
+  secret: "micro-secret-dict-001"
+  depends_on: []
+
+server:
+  address: "0.0.0.0:8002"
+  reflection: true
+  log_level: "info"
+
+database:
+  default:
+    type: "mysql"
+    host: "127.0.0.1"
+    port: 3306
+    user: "root"
+    pass: "123456"
+    name: "cooltest"
+
+redis:
+  address: "127.0.0.1:6379"
+  db: 0
+
+sa_token:
+  token_name: "satoken"
+  timeout: 3600
+  key_prefix: "sa:"
+  enable: true
+
+cool:
+  mode: "dev"
+  autoMigrate: true

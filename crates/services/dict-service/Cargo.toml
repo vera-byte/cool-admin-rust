@@ -1,0 +1,23 @@
+[package]
+name = "dict-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "dict 微服务"
+
+[[bin]]
+name = "dict-service"
+path = "src/main.rs"
+
+[dependencies]
+cool-micro = { workspace = true }
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-proto = { workspace = true }
+mod-dict = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-reflection = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

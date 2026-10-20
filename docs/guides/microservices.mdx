@@ -1,0 +1,170 @@
+---
+title: "微服务架构"
+description: "base/dict/space/task 独立部署 + sa-token 分布式会话"
+---
+
+## 架构模式
+
+`base` / `dict` / `space` / `task` 可作为**独立 gRPC 微服务**分别启动，
+通过 sa-token **分布式会话**共享登录态与服务凭证。
+
+```mermaid
+graph TB
+    C[客户端] -->|登录| B[base-service :8001]
+    C -->|token| D[dict-service :8002]
+    C -->|token| S[space-service :8003]
+    C -->|token| T[task-service :8004]
+
+    B <-->|服务凭证| D
+    T -->|x-service-id + secret| B
+
+    R[(Redis sa-token 分布式会话)]
+    B --- R
+    D --- R
+    S --- R
+    T --- R
+
+    M[(MySQL)]
+    B --- M
+    D --- M
+    S --- M
+    T --- M
+```
+
+## 服务端口
+
+| 服务 | 端口 | 职责 |
+| --- | --- | --- |
+| `base-service` | 8001 | 登录 / 用户 / 角色 / 部门 / 菜单 / 日志 / 文件 / EPS |
+| `dict-service` | 8002 | 字典类型 / 条目 |
+| `space-service` | 8003 | 文件空间分类 / 索引 |
+| `task-service` | 8004 | 定时任务调度 |
+
+## 分布式会话（sa-token）
+
+所有服务共享同一 Redis 存储（相同 `key_prefix`），核心收益：
+
+<CardGroup cols={2}>
+  <Card title="跨服务单点登录" icon="key">
+    在 base-service 登录获得的 token，可直接访问 dict/space/task 任意服务。
+  </Card>
+  <Card title="服务凭证" icon="shield">
+    服务间调用使用 `x-service-id` + `x-service-secret`，无需用户 token。
+  </Card>
+</CardGroup>
+
+### 初始化
+
+```rust
+// crates/cool-micro/src/session.rs
+use sa_token_core::{DistributedSessionManager, SaStorageDistributedStorage, ServiceCredential};
+
+// 1) 共享 Redis 存储
+let storage = RedisStorage::from_config(redis_cfg, "sa:").await?;
+let state = SaTokenState::builder()
+    .storage(Arc::new(storage))
+    .timeout(3600)
+    .build();
+
+// 2) 分布式会话管理器（服务凭证 + 共享属性）
+let dsm = DistributedSessionManager::new(
+    Arc::new(SaStorageDistributedStorage::new(storage, "sa:")),
+    "base-service".into(),
+    Duration::from_secs(3600),
+);
+
+// 3) 注册服务凭证
+dsm.register_service(ServiceCredential {
+    service_id: "base-service".into(),
+    service_name: "base".into(),
+    secret_key: "micro-secret-base-001".into(),
+    created_at: Utc::now(),
+    permissions: vec![],
+}).await?;
+```
+
+### 鉴权链路
+
+```mermaid
+flowchart LR
+    A[请求] --> B{路径公开?}
+    B -->|是| H[Handler]
+    B -->|否| C{含 x-service-id?}
+    C -->|是| D[verify_service 服务凭证]
+    D -->|通过| H
+    D -->|失败| E[Unauthenticated]
+    C -->|否| F[StpUtil::is_login 用户 token]
+    F -->|有效| H
+    F -->|无效| E
+```
+
+## 启动各服务
+
+<CodeGroup>
+```bash base-service
+MICRO_CONFIG=manifest/config/micro-base.yaml ./target/debug/base-service
+```
+
+```bash dict-service
+MICRO_CONFIG=manifest/config/micro-dict.yaml ./target/debug/dict-service
+```
+
+```bash space-service
+MICRO_CONFIG=manifest/config/micro-space.yaml ./target/debug/space-service
+```
+
+```bash task-service
+MICRO_CONFIG=manifest/config/micro-task.yaml ./target/debug/task-service
+```
+</CodeGroup>
+
+## 配置文件
+
+每个服务一份配置，关键差异是 `service.id` / `service.secret` / `server.address`：
+
+```yaml
+service:
+  id: "dict-service"
+  name: "dict"
+  secret: "micro-secret-dict-001"
+
+server:
+  address: "0.0.0.0:8002"
+
+sa_token:
+  timeout: 3600
+  key_prefix: "sa:"        # 多服务必须一致
+  enable: true
+
+redis:
+  address: "127.0.0.1:6379" # 分布式会话依赖
+```
+
+## 跨服务调用示例
+
+```bash
+# 1) base 登录拿 token
+TOKEN=$(grpcurl -plaintext -d '{"username":"admin","password":"123456",...}' \
+  localhost:8001 base.v1.BaseOpenService/Login | grep token)
+
+# 2) 用同一 token 调 dict（分布式会话）
+grpcurl -H "authorization: Bearer $TOKEN" \
+  -d '{"types":["type"]}' localhost:8002 dict.v1.DictInfoService/Data
+
+# 3) 服务间调用（无需用户 token）
+grpcurl -H "x-service-id: task-service" -H "x-service-secret: micro-secret-task-001" \
+  -d '{"page":1,"size":10}' localhost:8001 base.v1.BaseSysUserService/Page
+```
+
+## 与单体模式的关系
+
+| 模式 | 二进制 | 适用场景 |
+| --- | --- | --- |
+| 单体 | `cool-admin-rust` | 开发 / 小规模部署（全部模块一个进程） |
+| 微服务 | `base-service` 等 4 个 | 生产 / 独立扩缩容 / 故障隔离 |
+
+两种模式共享同一套 `modules/*` 业务代码与 sa-token 鉴权实现。
+
+<Note>
+  微服务模式下 Redis 为**必需**（分布式会话依赖）；单体模式 Redis 可选（回退内存）。
+</Note>

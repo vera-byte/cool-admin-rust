@@ -1,0 +1,23 @@
+[package]
+name = "space-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "space 微服务"
+
+[[bin]]
+name = "space-service"
+path = "src/main.rs"
+
+[dependencies]
+cool-micro = { workspace = true }
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-proto = { workspace = true }
+mod-space = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-reflection = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

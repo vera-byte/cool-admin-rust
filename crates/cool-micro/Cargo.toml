@@ -1,0 +1,31 @@
+[package]
+name = "cool-micro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "微服务公共脚手架：配置 / 分布式会话 / 服务鉴权"
+
+[dependencies]
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-func = { workspace = true }
+cool-file = { workspace = true }
+
+sa-token-plugin-tonic = { workspace = true, features = ["redis"] }
+sa-token-core = { workspace = true }
+sa-token-storage-redis = { workspace = true }
+sa-token-adapter = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+http-body-util = "0.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+config = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+async-trait = "0.1"

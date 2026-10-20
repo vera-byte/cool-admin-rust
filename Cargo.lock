@@ -104,6 +104,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arcstr"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03918c3dbd7701a85c6b9887732e2921175f26c350b4563841d0958c21d57e6d"
+
+[[package]]
 name = "argon2"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -120,6 +126,17 @@ name = "arraydeque"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
+
+[[package]]
+name = "async-lock"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290f7f2596bd5b78a9fec8088ccd89180d7f9f55b94b0576823bbbdc72ee8311"
+dependencies = [
+ "event-listener",
+ "event-listener-strategy",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "async-stream"
@@ -715,6 +732,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "base-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "mod-base",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,7 +1037,7 @@ dependencies = [
  "md5",
  "once_cell",
  "rand",
- "redis",
+ "redis 0.27.6",
  "sa-token-core",
  "sa-token-plugin-tonic",
  "serde",
@@ -1050,9 +1085,36 @@ dependencies = [
  "cool-core",
  "futures-util",
  "once_cell",
- "redis",
+ "redis 0.27.6",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "cool-micro"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "config",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "http 1.5.0",
+ "http-body-util",
+ "sa-token-adapter",
+ "sa-token-core",
+ "sa-token-plugin-tonic",
+ "sa-token-storage-redis",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tonic",
+ "tower 0.5.3",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1266,6 +1328,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e9de72ce2ad1f90dc62fa25f0f430ef85eb4b0d8fa0be4f30373bc40a21d28e"
 
 [[package]]
+name = "dict-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cool-core",
+ "cool-db",
+ "cool-micro",
+ "cool-proto",
+ "mod-dict",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1437,6 +1515,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
 dependencies = [
  "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
+dependencies = [
+ "event-listener",
  "pin-project-lite",
 ]
 
@@ -2163,15 +2251,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2524,6 +2603,16 @@ name = "num-bigint"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -2891,7 +2980,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck",
- "itertools 0.14.0",
+ "itertools",
  "log",
  "multimap",
  "once_cell",
@@ -2911,7 +3000,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -2993,9 +3082,9 @@ dependencies = [
  "combine",
  "futures",
  "futures-util",
- "itertools 0.13.0",
+ "itertools",
  "itoa",
- "num-bigint",
+ "num-bigint 0.4.8",
  "percent-encoding",
  "pin-project-lite",
  "ryu",
@@ -3004,6 +3093,34 @@ dependencies = [
  "tokio",
  "tokio-util",
  "url",
+]
+
+[[package]]
+name = "redis"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5b98ae99461e02895c3a96a25dbe4d852a3d5e5b815d31d5d9e4b5344d99e9"
+dependencies = [
+ "arc-swap",
+ "arcstr",
+ "async-lock",
+ "backon",
+ "bytes",
+ "cfg-if",
+ "combine",
+ "futures-channel",
+ "futures-util",
+ "itoa",
+ "num-bigint 0.5.1",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.6.5",
+ "tokio",
+ "tokio-util",
+ "url",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -3305,6 +3422,7 @@ dependencies = [
  "sa-token-macro",
  "sa-token-plugin-common",
  "sa-token-storage-memory",
+ "sa-token-storage-redis",
  "serde",
  "serde_json",
  "tokio",
@@ -3322,6 +3440,19 @@ dependencies = [
  "chrono",
  "regex",
  "sa-token-adapter",
+ "tokio",
+]
+
+[[package]]
+name = "sa-token-storage-redis"
+version = "0.2.0"
+source = "git+https://github.com/sa-tokens/sa-token-rust#b65e0bcd6a4b31cccbf832d264c772109c7d2e32"
+dependencies = [
+ "async-trait",
+ "redis 1.7.1",
+ "sa-token-adapter",
+ "serde",
+ "thiserror",
  "tokio",
 ]
 
@@ -3594,7 +3725,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
 dependencies = [
- "num-bigint",
+ "num-bigint 0.4.8",
  "num-traits",
  "thiserror",
  "time",
@@ -3633,6 +3764,22 @@ checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "space-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cool-core",
+ "cool-db",
+ "cool-micro",
+ "cool-proto",
+ "mod-space",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
 ]
 
 [[package]]
@@ -3933,6 +4080,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "task-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cool-core",
+ "cool-db",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "mod-task",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
 ]
 
 [[package]]
@@ -4775,6 +4939,12 @@ name = "xmlparser"
 version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "550a2b930b62486a393c52d5c3b84bff264b28aa437ed64694d31e93b1757af7"
 
 [[package]]
 name = "yaml-rust2"

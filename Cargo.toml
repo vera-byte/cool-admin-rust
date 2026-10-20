@@ -13,6 +13,11 @@ members = [
     "crates/modules/task",
     "crates/server",
     "crates/cool-tools",
+    "crates/cool-micro",
+    "crates/services/task-service",
+    "crates/services/space-service",
+    "crates/services/dict-service",
+    "crates/services/base-service",
 ]
 
 [workspace.package]
@@ -27,6 +32,7 @@ cool-core = { path = "crates/cool-core" }
 cool-db = { path = "crates/cool-db" }
 cool-func = { path = "crates/cool-func" }
 cool-file = { path = "crates/cool-file" }
+cool-micro = { path = "crates/cool-micro" }
 mod-demo = { path = "crates/modules/demo" }
 mod-base = { path = "crates/modules/base" }
 mod-dict = { path = "crates/modules/dict" }
@@ -52,6 +58,8 @@ redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 cron = "0.13"
 sa-token-plugin-tonic = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-plugin-tonic", default-features = false, features = ["tonic-012", "memory"] }
 sa-token-core = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-core" }
+sa-token-storage-redis = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-storage-redis" }
+sa-token-adapter = { git = "https://github.com/sa-tokens/sa-token-rust", package = "sa-token-adapter" }
 tokio-util = { version = "0.7", features = ["rt"] }
 bytes = "1"
 

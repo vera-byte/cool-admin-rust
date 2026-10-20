@@ -73,6 +73,15 @@ graph TD
     CoolFile --> CoolCore
 ```
 
+## 部署形态
+
+| 模式 | 说明 |
+| --- | --- |
+| 单体 | `cool-admin-rust` 一个进程承载全部模块（开发友好） |
+| 微服务 | `base/dict/space/task` 各自独立进程，sa-token 分布式会话共享登录态 |
+
+详见 [微服务架构](/guides/microservices)。
+
 ## 模块内部结构
 
 每个业务模块遵循统一的三层模式（对齐 cool-admin-go）：
