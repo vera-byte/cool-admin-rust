@@ -1,0 +1,113 @@
+---
+title: "配置"
+description: "config.yaml 结构与环境变量覆盖"
+---
+
+配置文件位于 `manifest/config/config.yaml`，支持 **camelCase** 字段命名（与 cool-admin-go 对齐）。
+
+## 配置结构
+
+```yaml
+server:
+  address: "0.0.0.0:8001"
+  reflection: true
+  max_decoding_message_size: 104857600
+  log_level: "info"
+
+database:
+  default:
+    type: "mysql"
+    host: "127.0.0.1"
+    port: 3306
+    user: "root"
+    pass: "123456"
+    name: "cooltest"
+
+redis:
+  cool:
+    address: "127.0.0.1:6379"
+    db: 0
+
+cool:
+  mode: "dev"              # dev | prod | cool-tools
+  autoMigrate: true        # 启动时执行 SQL 迁移
+  eps: true
+  dbRequired: false        # true 时数据库不可用直接退出
+  file:
+    mode: "local"          # local | minio | oss
+    domain: "http://127.0.0.1:8002"
+    oss:
+      endpoint: "127.0.0.1:9000"
+      accessKeyID: ""
+      secretAccessKey: ""
+      bucketName: "cool-admin-rust"
+      useSSL: false
+      location: "us-east-1"
+
+modules:
+  base:
+    jwt:
+      sso: false
+      secret: "cool-base88776655"
+      token:
+        expire: 3600          # 会话有效期（秒）
+        refreshExpire: 1296000
+    middleware:
+      authority:
+        enable: true          # 是否启用鉴权层
+      log:
+        enable: true
+```
+
+## 字段说明
+
+| 字段 | 说明 | 默认值 |
+| --- | --- | --- |
+| `server.address` | gRPC 监听地址 | `0.0.0.0:8001` |
+| `server.reflection` | 启用 gRPC Reflection | `true` |
+| `cool.autoMigrate` | 启动执行迁移 | `true` |
+| `cool.dbRequired` | 数据库必需（不可降级） | `false` |
+| `cool.file.mode` | 文件驱动 | `local` |
+| `modules.base.jwt.token.expire` | sa-token 会话有效期（秒） | `3600` |
+| `modules.base.middleware.authority.enable` | 启用鉴权 | `true` |
+
+## 环境变量覆盖
+
+所有配置项均可用环境变量覆盖，规则为 `COOL_` 前缀 + `__` 分隔层级：
+
+```bash
+COOL_SERVER__ADDRESS=0.0.0.0:9001 \
+COOL_DATABASE__DEFAULT__HOST=mysql \
+COOL_REDIS__COOL__ADDRESS=redis:6379 \
+./target/release/cool-admin-rust
+```
+
+也可指定配置文件路径：
+
+```bash
+COOL_CONFIG=/path/to/config.yaml ./target/release/cool-admin-rust
+```
+
+## Redis 模式
+
+配置 `redis.cool.address` 后自动启用：
+
+- **缓存**：会话、验证码、登录失败计数切换为 Redis
+- **分布式函数**：`cool:func` 频道 pub/sub，多节点同步任务启停
+- **主节点选举**：`cool:masterflag` 键（60s TTL）
+
+<Note>
+  Redis 连接限时 2 秒，超时自动回退内存模式，不阻塞启动。
+</Note>
+
+## JWT 弱密钥黑名单
+
+启动时校验 `modules.base.jwt.secret`，拒绝过短或命中黑名单的密钥：
+
+```text
+secret / 123456 / password / admin / changeme ...
+```
+
+<Warning>
+  生产环境务必更换 `secret`，且长度 ≥ 16 位。
+</Warning>

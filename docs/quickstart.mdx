@@ -1,0 +1,96 @@
+---
+title: "快速开始"
+description: "启动服务并跑通第一个 gRPC 接口"
+---
+
+<Steps>
+  <Step title="准备依赖">
+    启动 MySQL（必需）与 Redis（可选，启用分布式能力）：
+
+    ```bash
+    docker run -d --name cool-mysql \
+      -e MYSQL_ROOT_PASSWORD=123456 \
+      -e MYSQL_DATABASE=cooltest \
+      -p 3306:3306 mysql:8
+
+    # 可选：Redis（分布式函数 / 共享会话）
+    docker run -d --name cool-redis -p 6379:6379 redis:7
+    ```
+  </Step>
+
+  <Step title="构建并启动">
+    ```bash
+    cargo build --release -p server
+    ./target/release/cool-admin-rust
+    ```
+
+    看到以下日志即就绪：
+
+    ```text
+    INFO sa-token initialized timeout=3600 token_name=satoken
+    INFO gRPC server listening addr=0.0.0.0:8001
+    ```
+  </Step>
+
+  <Step title="调用登录接口">
+    安装 [grpcurl](https://github.com/fullstorydev/grpcurl)，然后：
+
+    ```bash
+    # 1) 获取验证码（SVG 中 4 位数字）
+    grpcurl -plaintext -d '{}' localhost:8001 base.v1.BaseOpenService/Captcha
+
+    # 2) 登录（admin / 123456）
+    grpcurl -plaintext \
+      -d '{"username":"admin","password":"123456","captchaId":"<cid>","verifyCode":"<code>"}' \
+      localhost:8001 base.v1.BaseOpenService/Login
+    ```
+
+    响应中 `data.token` 即 sa-token 会话令牌（UUID 格式）。
+  </Step>
+
+  <Step title="访问受保护接口">
+    后续请求携带 `authorization: Bearer <token>`：
+
+    ```bash
+    H='authorization: Bearer <token>'
+
+    grpcurl -plaintext -H "$H" -d '{}' \
+      localhost:8001 base.v1.BaseOpenService/PersonInfo
+
+    grpcurl -plaintext -H "$H" -d '{"page":1,"size":10}' \
+      localhost:8001 base.v1.BaseSysUserService/Page
+    ```
+  </Step>
+</Steps>
+
+## 一键冒烟测试
+
+项目内置全链路冒烟脚本，覆盖登录 / 安全拦截 / 全业务模块：
+
+```bash
+bash /tmp/cool-smoke.sh
+# 冒烟结果：PASS=23  FAIL=0
+```
+
+## 默认账号
+
+| 字段 | 值 |
+| --- | --- |
+| 用户名 | `admin` |
+| 密码 | `123456` |
+| 角色 | 超级管理员 |
+
+<Warning>
+  生产环境请立即修改默认密码，并配置强 JWT / sa-token 密钥。
+</Warning>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="架构总览" icon="sitemap" href="/architecture">
+    了解 crate 分层与请求链路
+  </Card>
+  <Card title="鉴权架构" icon="shield" href="/concepts/authentication">
+    深入 sa-token 登录 / 权限 / 路径鉴权
+  </Card>
+</CardGroup>

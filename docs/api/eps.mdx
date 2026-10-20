@@ -1,0 +1,86 @@
+---
+title: "EPS 接口权限表"
+description: "供前端动态菜单与按钮权限使用的元数据"
+---
+
+EPS（Endpoint Permission System）提供接口权限元数据，对齐 cool-admin-go 的
+`/admin/base/open/eps`，供前端动态渲染菜单 / 按钮权限。
+
+## 接口
+
+| RPC | 说明 |
+| --- | --- |
+| `BaseOpenService.Eps` | 管理端 EPS（按模块分组） |
+| `BaseOpenService.EpsApp` | App 端 EPS（精简列表） |
+
+## Eps 响应结构
+
+```json
+{
+  "code": 1000,
+  "data": {
+    "base": "{...JSON...}",
+    "dict": "{...JSON...}",
+    "space": "{...JSON...}",
+    "task": "{...JSON...}"
+  }
+}
+```
+
+每个模块的 JSON 结构：
+
+```json
+{
+  "module": "base",
+  "prefix": "base.v1.BaseSysUser",
+  "api": [
+    {
+      "module": "base",
+      "method": "Page",
+      "path": "base.v1.BaseSysUserService/Page",
+      "prefix": "base.v1.BaseSysUser",
+      "summary": "用户分页"
+    }
+  ],
+  "columns": []
+}
+```
+
+## EpsApp
+
+精简列表（module / method / path / summary），适合移动端：
+
+```bash
+grpcurl -H "$H" -d '{}' localhost:8001 base.v1.BaseOpenService/EpsApp
+```
+
+## 元数据注册
+
+服务启动时由 `server/eps.rs` 全量登记：
+
+```rust
+// crates/server/src/eps.rs
+pub fn register_all() {
+    use cool_core::eps::register_module;
+
+    register_module(
+        "base",
+        "base.v1.BaseSysUser",
+        &[
+            ("Page", "base.v1.BaseSysUserService/Page", "用户分页"),
+            ("Info", "base.v1.BaseSysUserService/Info", "用户详情"),
+            // ...
+        ],
+    );
+    // dict / space / task ...
+}
+```
+
+新增 RPC 时在 `register_all()` 补一条即可。
+
+## 前端用法
+
+```typescript
+const eps = await fetch("/eps", { headers: { authorization: `Bearer ${token}` } });
+// 按 module 分组渲染菜单，path 字段对应 gRPC 调用路径
+```

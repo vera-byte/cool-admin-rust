@@ -340,7 +340,49 @@ docker run --rm -p 8080:8080 \
 
 统一约定：`authorization: Bearer <JWT>` 元数据、`code=1000/1001` 业务码、typed data。
 
-## 9. 相关文档
+## 9. 文档站（Mintlify）
+
+项目文档采用 [Mintlify](https://mintlify.com) 管理，位于 `docs/`：
+
+```text
+docs/
+├── docs.json          # 站点配置（导航 / 主题 / SEO）
+├── index.mdx          # 介绍
+├── quickstart.mdx     # 快速开始
+├── architecture.mdx   # 架构总览
+├── concepts/          # 核心概念（响应 / 鉴权 / CRUD / 配置）
+├── modules/           # 业务模块（base / dict / space / task / file）
+├── api/               # API 参考（gRPC / EPS）
+└── guides/            # 指南（部署 / CLI / 测试 / 前端对接）
+```
+
+### 本地预览
+
+```bash
+npm i -g mint
+cd docs
+mint dev          # http://localhost:3000
+```
+
+### 校验
+
+```bash
+cd docs
+mint validate     # 构建校验
+mint broken-links # 失效链接检查
+```
+
+### 部署
+
+```bash
+mint login        # 或 mint signup
+cd docs
+git push          # 推送到生产分支自动部署
+```
+
+---
+
+## 10. 相关文档
 
 - 实现方案（Go → Rust 对照、架构、阶段计划）：`cool-admin-go/RUST_IMPLEMENTATION_PLAN.md`
 - CoolAdminGo 使用文档：`cool-admin-go/docs/`

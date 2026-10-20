@@ -1,0 +1,87 @@
+---
+title: "dict 字典模块"
+description: "字典类型 / 条目管理与数据聚合"
+---
+
+字典模块管理系统级枚举数据（如类别、品牌），支持按类型聚合查询。
+
+## 服务
+
+| 服务 | RPC |
+| --- | --- |
+| `DictTypeService` | Add / Delete / Update / Info / List / Page |
+| `DictInfoService` | Add / Delete / Update / Info / List / Page / **Data** |
+
+## 数据表
+
+| 表名 | 字段 |
+| --- | --- |
+| `dict_type` | name, key（唯一） |
+| `dict_info` | typeId, name, orderNum, remark, parentId |
+
+## 种子数据
+
+迁移自动写入演示数据：
+
+| 类型 | 条目 |
+| --- | --- |
+| 类别 (`type`) | 衣服、裤子、鞋子 |
+| 品牌 (`brand`) | 闪酷、COOL |
+
+## Data 聚合接口
+
+按类型 key 一次性返回字典条目（前端常用）：
+
+```bash
+grpcurl -H "$H" -d '{"types":["type","brand"]}' \
+  localhost:8001 dict.v1.DictInfoService/Data
+```
+
+```json
+{
+  "code": 1000,
+  "data": {
+    "type": {
+      "items": [
+        { "id": "11", "name": "衣服", "typeId": "6" },
+        { "id": "12", "name": "裤子", "typeId": "6" }
+      ]
+    },
+    "brand": {
+      "items": [
+        { "id": "14", "name": "闪酷", "typeId": "7" }
+      ]
+    }
+  }
+}
+```
+
+<Note>
+  `types` 传空数组表示返回全部类型。条目按 `orderNum ASC` 排序。
+</Note>
+
+## 递归删除
+
+删除 `dict_info` 条目时，自动递归软删其子条目（通过 `parentId` 关联）：
+
+```bash
+grpcurl -H "$H" -d '{"ids":[11]}' \
+  localhost:8001 dict.v1.DictInfoService/Delete
+# id=11 及其所有子节点一并软删
+```
+
+## CRUD 示例
+
+```bash
+# 新增类型
+grpcurl -H "$H" -d '{"name":"颜色","key":"color"}' \
+  localhost:8001 dict.v1.DictTypeService/Add
+
+# 新增条目
+grpcurl -H "$H" -d '{"typeId":6,"name":"红色","orderNum":1}' \
+  localhost:8001 dict.v1.DictInfoService/Add
+
+# 按类型过滤列表
+grpcurl -H "$H" -d '{"typeId":6}' \
+  localhost:8001 dict.v1.DictInfoService/List
+```

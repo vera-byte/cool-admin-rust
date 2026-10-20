@@ -1,0 +1,104 @@
+---
+title: "前端对接"
+description: "gRPC-Web 客户端接入与联调清单"
+---
+
+## 接入方式
+
+后端为纯 gRPC，浏览器接入有三种方案：
+
+<Tabs>
+  <Tab title="gRPC-Web（推荐）">
+    通过 Envoy 代理，前端用 `connect-es` 或 `grpc-web` 客户端。
+
+    ```mermaid
+    flowchart LR
+        V[Vue / React] -->|gRPC-Web| E[Envoy :8080]
+        E -->|gRPC| S[:8001]
+    ```
+
+    ```typescript
+    import { createClient } from "@connectrpc/connect";
+    import { createGrpcWebTransport } from "@connectrpc/connect-web";
+
+    const transport = createGrpcWebTransport({
+      baseUrl: "http://localhost:8080",
+      interceptors: [
+        (next, req) => {
+          req.header.set("authorization", `Bearer ${token}`);
+          return next(req);
+        },
+      ],
+    });
+    ```
+  </Tab>
+
+  <Tab title="Connect-RPC">
+    tonic 侧加 connect 适配层，浏览器可直接 fetch 流。
+  </Tab>
+
+  <Tab title="临时网关">
+    REST → gRPC 转换网关，前端几乎不改。适合迁移过渡期。
+  </Tab>
+</Tabs>
+
+## 鉴权约定
+
+请求元数据携带 sa-token：
+
+```typescript
+// 两种写法均可
+headers: { "authorization": `Bearer ${token}` }
+headers: { "satoken": token }
+```
+
+## 联调清单
+
+<AccordionGroup>
+  <Accordion title="登录链路">
+    1. `Captcha` → 显示 SVG（base64），用户输入 4 位数字
+    2. `Login` → 存 `data.token` / `data.refreshToken`
+    3. 后续请求带 `authorization: Bearer <token>`
+    4. token 过期 → `RefreshToken` 续期
+    5. 退出 → `Logout`
+  </Accordion>
+
+  <Accordion title="错误处理">
+    | gRPC Status | 处理 |
+    | --- | --- |
+    | `Unauthenticated` | 跳转登录页 |
+    | `PermissionDenied` | 提示无权限 |
+    | `InvalidArgument` | 展示 `message`（业务错误） |
+    | `Internal` | 通用错误提示 |
+  </Accordion>
+
+  <Accordion title="动态菜单">
+    调用 `BaseOpenService.Eps` 获取接口元数据，按 `module` 分组渲染菜单 / 按钮。
+  </Accordion>
+
+  <Accordion title="文件上传">
+    1. `UploadMode` 判断是否走代理
+    2. `Upload`（bytes + filename）→ 返回 `url` / `path`
+    3. 调用 `SpaceInfoService.Add` 登记索引
+  </Accordion>
+</AccordionGroup>
+
+## 响应解包
+
+所有响应形如 `{ code, message, data }`：
+
+```typescript
+const res = await client.login(req);
+if (res.code !== 1000) {
+  throw new Error(res.message);
+}
+localStorage.setItem("token", res.data.token);
+```
+
+## 时间字段
+
+所有时间戳为 **Unix 毫秒**（`int64`）：
+
+```typescript
+new Date(Number(res.data.createTime));
+```

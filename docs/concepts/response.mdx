@@ -1,0 +1,78 @@
+---
+title: "响应约定"
+description: "统一业务码、错误映射与 typed data"
+---
+
+## 业务码
+
+所有 RPC 响体都包含 `code` 与 `message` 字段，业务语义对齐 cool-admin-go：
+
+| 场景 | `code` | gRPC Status |
+| --- | --- | --- |
+| 成功 | `1000` | `OK` |
+| 业务失败（唯一键冲突、参数不合法等） | `1001` | `InvalidArgument` 或 `OK`（body 内） |
+| 未登录 / token 失效 | `1001` | `Unauthenticated` (16) |
+| 无权限 | `1001` | `PermissionDenied` (7) |
+| 内部错误 | `1001` | `Internal` (13) |
+
+## typed data（决策 D1）
+
+每个 RPC 使用**强类型**响应体，而非 `google.protobuf.Any`：
+
+```protobuf
+message UserPageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SysUser list = 4;
+}
+```
+
+示例响应：
+
+```json
+{
+  "code": 1000,
+  "message": "ok",
+  "total": 42,
+  "list": [
+    {
+      "id": "1",
+      "username": "admin",
+      "name": "超级管理员",
+      "status": 1
+    }
+  ]
+}
+```
+
+<Note>
+  密码字段**永不回传**。列表 / 详情接口返回的 `password` 为空字符串。
+</Note>
+
+## gRPC Status 映射
+
+```rust
+// cool-core/src/error.rs
+pub enum CoolError {
+    Biz(String),             // → InvalidArgument 或 body code=1001
+    InvalidArgument(String), // → InvalidArgument
+    Unauthenticated(String), // → Unauthenticated
+    PermissionDenied(String),// → PermissionDenied
+    NotFound(String),        // → NotFound
+    Internal(String),        // → Internal
+}
+```
+
+## 时间字段
+
+所有时间戳统一为 **Unix 毫秒**（`int64`）：
+
+```json
+{
+  "createTime": 1792507392036,
+  "updateTime": 1792507392036
+}
+```
+
+数据库层使用 `DATETIME(3)`，列名对齐 cool-admin-go：`createTime` / `updateTime` / `deleteTime`。

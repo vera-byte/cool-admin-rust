@@ -1,0 +1,64 @@
+---
+title: "介绍"
+description: "CoolAdmin 的 Rust + gRPC 重写版 —— 让后端开发变得简单、高效"
+---
+
+CoolAdminRust 是 [CoolAdmin](https://cool-js.com) 系列的 **Rust + gRPC** 后端实现，
+基于 [tonic](https://github.com/hyperium/tonic) 构建，提供与 cool-admin-go 对齐的业务语义与安全模型。
+
+<Note>
+  本项目不使用 Web 框架，对外统一通过 **gRPC** 提供服务（决策 D1–D5 已锁定）。
+</Note>
+
+## 为什么选择 CoolAdminRust
+
+<CardGroup cols={2}>
+  <Card title="纯 gRPC 架构" icon="server" href="/architecture">
+    tonic + prost，15 个 gRPC 服务、70+ RPC，内置 Server Reflection。
+  </Card>
+  <Card title="通用 CRUD 引擎" icon="database" href="/concepts/crud">
+    Model / CrudRepo / CrudService 三层抽象，软删除、唯一键、排序白名单开箱即用。
+  </Card>
+  <Card title="sa-token 鉴权" icon="shield-check" href="/concepts/authentication">
+    集成 sa-token-plugin-tonic，登录会话、RBAC 权限、per-RPC 路径鉴权。
+  </Card>
+  <Card title="开箱即用模块" icon="blocks" href="/modules/base">
+    用户/角色/部门/菜单、字典、文件空间、定时任务、分布式函数、文件存储。
+  </Card>
+</CardGroup>
+
+## 技术栈
+
+| 领域 | 选型 |
+| --- | --- |
+| 运行时 | tokio |
+| RPC | tonic 0.12 + prost |
+| 数据库 | SQLx（MySQL）+ SQL 迁移 |
+| 缓存 | redis-rs（Redis / 内存双模式） |
+| 鉴权 | sa-token-plugin-tonic |
+| 密码 | argon2（兼容旧 MD5 自动升级） |
+| 文件存储 | local / minio / oss |
+
+## 项目规模
+
+| 维度 | 数量 |
+| --- | --- |
+| gRPC 服务 | 15 |
+| gRPC RPC | 70+ |
+| crate | 11 |
+| SQL 迁移 | 6 |
+| 测试 | 64 项（含安全回归） |
+
+## 快速导航
+
+<CardGroup cols={3}>
+  <Card title="快速开始" icon="rocket" href="/quickstart">
+    5 分钟启动服务并调通登录接口
+  </Card>
+  <Card title="鉴权架构" icon="key" href="/concepts/authentication">
+    sa-token 登录会话与权限校验
+  </Card>
+  <Card title="CRUD 引擎" icon="arrows-rotate" href="/concepts/crud">
+    三行代码获得完整增删改查
+  </Card>
+</CardGroup>

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "CoolAdminRust",
+  "description": "CoolAdmin 的 Rust + gRPC 重写版 —— 通用 CRUD、权限认证、定时任务、分布式函数与文件存储",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#55D799",
+    "dark": "#0D9373"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "开始使用",
+        "pages": ["index", "quickstart", "architecture"]
+      },
+      {
+        "group": "核心概念",
+        "pages": [
+          "concepts/response",
+          "concepts/authentication",
+          "concepts/crud",
+          "concepts/configuration"
+        ]
+      },
+      {
+        "group": "业务模块",
+        "pages": [
+          "modules/base",
+          "modules/dict",
+          "modules/space",
+          "modules/task",
+          "modules/file"
+        ]
+      },
+      {
+        "group": "API 参考",
+        "pages": ["api/grpc", "api/eps"]
+      },
+      {
+        "group": "指南",
+        "pages": ["guides/deployment", "guides/cli", "guides/testing", "guides/frontend"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/cool-team-official/cool-admin-go"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/cool-team-official/cool-admin-go"
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs"
+  }
+}

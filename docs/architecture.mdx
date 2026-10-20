@@ -1,0 +1,91 @@
+---
+title: "架构总览"
+description: "crate 分层、请求链路与目录结构"
+---
+
+## 请求链路
+
+```mermaid
+sequenceDiagram
+    participant C as Client (grpcurl / 前端)
+    participant L as LoggingLayer
+    participant S as SaTokenGrpcLayer
+    participant H as gRPC Handler
+    participant SV as Service / Repo
+    participant DB as MySQL
+
+    C->>L: gRPC 请求
+    L->>S: 记录耗时
+    S->>S: PathAuthConfig 判定公开/受保护
+    S->>H: 注入 SaTokenLoginId
+    H->>SV: 调用 CrudService
+    SV->>DB: SQLx 查询
+    DB-->>SV: 行数据
+    SV-->>H: FieldMap
+    H-->>C: typed data（code=1000）
+```
+
+## crate 分层
+
+```text
+cool-admin-rust/
+├── proto/                  # .proto 契约（单一事实来源）
+├── crates/
+│   ├── cool-proto/         # proto 生成代码 + Reflection descriptor
+│   ├── cool-core/          # 核心框架
+│   │   ├── crud.rs         #   CrudService trait
+│   │   ├── repo.rs         #   CrudRepo（通用 CRUD）
+│   │   ├── model.rs        #   Model trait / 列白名单
+│   │   ├── query.rs        #   排序白名单 / WHERE 构造
+│   │   ├── satoken.rs      #   sa-token 集成
+│   │   ├── password.rs     #   argon2 + 旧 MD5 升级
+│   │   ├── cache.rs        #   Mem / Redis 缓存
+│   │   └── eps.rs          #   接口权限元数据
+│   ├── cool-db/            # SQLx 连接池 + 迁移
+│   ├── cool-func/          # 分布式函数（Redis pub/sub）
+│   ├── cool-file/          # 文件存储驱动（local/minio/oss）
+│   ├── modules/
+│   │   ├── base/           # 用户/角色/部门/菜单/日志/登录
+│   │   ├── demo/           # CRUD 示范
+│   │   ├── dict/           # 字典
+│   │   ├── space/          # 文件空间
+│   │   └── task/           # 定时任务
+│   ├── cool-tools/         # CLI 脚手架
+│   └── server/             # gRPC 入口
+├── migrations/             # SQLx 迁移
+└── manifest/config/        # 配置
+```
+
+## 分层依赖
+
+依赖方向严格自上而下，禁止反向依赖：
+
+```mermaid
+graph TD
+    Server[server 入口] --> Modules[业务模块]
+    Server --> CoolCore[cool-core]
+    Modules --> CoolCore
+    Modules --> CoolProto[cool-proto]
+    Modules --> CoolFunc[cool-func]
+    Modules --> CoolFile[cool-file]
+    CoolCore --> CoolDb[cool-db]
+    CoolFunc --> CoolCore
+    CoolFile --> CoolCore
+```
+
+## 模块内部结构
+
+每个业务模块遵循统一的三层模式（对齐 cool-admin-go）：
+
+```text
+crates/modules/<name>/
+├── src/
+│   ├── model/        # Model 实现（表名 + 列元信息）
+│   ├── service/      # CrudService 实现 + 业务钩子
+│   └── handler/      # gRPC Service 实现
+└── tests/            # 集成测试
+```
+
+<Tip>
+  新增模块可用 `cool-tools module <name>` 一键生成骨架。
+</Tip>

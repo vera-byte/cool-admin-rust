@@ -1,0 +1,73 @@
+---
+title: "测试"
+description: "单元测试、集成测试与安全回归"
+---
+
+## 测试矩阵
+
+| 类别 | 数量 | 位置 |
+| --- | --- | --- |
+| 核心单测（CRUD/JWT/密码/缓存/查询） | 28 | `crates/cool-core` |
+| 安全回归 | 8 | `crates/cool-core/tests/security_regression.rs` |
+| sa-token 集成 | 2 | `crates/cool-core/src/satoken.rs` |
+| base 登录集成 | 3 | `crates/modules/base/tests/` |
+| demo CRUD 集成 | 2 | `crates/modules/demo/tests/` |
+| dict 集成 | 1 | `crates/modules/dict/tests/` |
+| task 集成 | 2 | `crates/modules/task/tests/` |
+| 文件存储 | 6 | `crates/cool-file` |
+| 分布式函数 | 4 | `crates/cool-func` |
+| 配置解析 | 3 | `crates/server` |
+
+## 运行测试
+
+```bash
+# 全部测试（需要本地 MySQL）
+docker start cool-mysql-test
+cargo test
+
+# 单个 crate
+cargo test -p cool-core
+cargo test -p mod-base
+```
+
+集成测试通过 `COOL_TEST_DATABASE_URL` 指定数据库：
+
+```bash
+COOL_TEST_DATABASE_URL=mysql://root:123456@127.0.0.1:3306/cooltest \
+  cargo test
+```
+
+<Note>
+  集成测试用 `DB_LOCK: Mutex` 串行执行，避免并行操作同一张表。
+</Note>
+
+## 安全回归
+
+`security_regression.rs` 覆盖 cool-admin-go 1.5.12 加固清单：
+
+| 用例 | 防护点 |
+| --- | --- |
+| `sec_order_by_injection_blocked` | ORDER BY 注入 |
+| `sec_identifier_whitelist` | 列名 / 表名白名单 |
+| `sec_jwt_weak_secret_blocked` | JWT 弱密钥黑名单 |
+| `sec_password_hash_and_legacy_upgrade` | argon2 + 旧 MD5 升级 |
+| `sec_jwt_tamper_and_expiry` | token 篡改 / 换钥 / 过期 |
+| `sec_refresh_token_flag_required` | access / refresh 区分 |
+| `sec_password_field_not_writable` | password 列不可写 |
+| `sec_file_path_traversal_blocked` | 文件路径穿越 |
+
+## 质量门禁
+
+```bash
+cargo fmt --all
+cargo clippy --workspace    # 零告警
+cargo test                  # 全绿
+```
+
+## 冒烟测试
+
+```bash
+bash /tmp/cool-smoke.sh
+# 覆盖：登录 / 安全拦截 / 用户 / 角色 / 部门 / 菜单 / 字典 / 空间 / 任务 / 文件 / EPS
+# 预期：PASS=23  FAIL=0
+```

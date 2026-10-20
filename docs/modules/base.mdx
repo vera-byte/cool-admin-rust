@@ -1,0 +1,99 @@
+---
+title: "base 权限模块"
+description: "登录、用户、角色、部门、菜单、日志"
+---
+
+base 是系统核心模块，提供完整的权限体系。
+
+## 服务一览
+
+| 服务 | RPC |
+| --- | --- |
+| `BaseOpenService` | Captcha / Login / RefreshToken / Logout / PersonInfo / PersonUpdate / PersonPassword / Eps / EpsApp |
+| `BaseSysUserService` | Page / List / Info / Add / Update / Delete |
+| `BaseSysRoleService` | Page / List / Info / Add / Update / Delete |
+| `BaseSysDepartmentService` | List / Tree / Info / Add / Update / Delete |
+| `BaseSysMenuService` | List / Tree / Info / Add / Update / Delete / Perms |
+| `BaseSysLogService` | Page |
+| `BaseCommService` | UploadMode / Upload / Download |
+
+## 数据表
+
+| 表名 | 说明 |
+| --- | --- |
+| `base_sys_user` | 系统用户 |
+| `base_sys_role` | 角色 |
+| `base_sys_department` | 部门 |
+| `base_sys_menu` | 菜单权限 |
+| `base_sys_user_role` | 用户-角色关联 |
+| `base_sys_role_menu` | 角色-菜单关联 |
+| `base_sys_role_department` | 角色-部门关联（数据范围） |
+| `base_sys_log` | 操作日志 |
+| `base_sys_conf` | 系统配置 kv |
+
+## 用户管理
+
+```bash
+# 分页
+grpcurl -H "$H" -d '{"page":1,"size":10}' \
+  localhost:8001 base.v1.BaseSysUserService/Page
+
+# 新增
+grpcurl -H "$H" -d '{
+  "name":"张三","username":"zhangsan","password":"123456",
+  "departmentId":1,"status":1,"roleIds":[1]
+}' localhost:8001 base.v1.BaseSysUserService/Add
+```
+
+<Note>
+  列表 / 详情**永不返回** `password` 字段。
+</Note>
+
+## 部门数据范围
+
+普通管理员只能查看「自身部门 + 角色关联部门」的用户：
+
+```rust
+// service/user.rs
+pub async fn scope_departments(&self, user_id: i64, role_ids: &[i64])
+    -> Option<Vec<i64>>
+{
+    if user_id == 1 || role_ids.contains(&1) {
+        return None; // 超管不限制
+    }
+    // 自身部门 + 角色关联部门
+    ...
+}
+```
+
+## 菜单权限（Perms）
+
+返回当前用户可见的菜单树 + 权限标识：
+
+```bash
+grpcurl -H "$H" -d '{}' localhost:8001 base.v1.BaseSysMenuService/Perms
+```
+
+```json
+{
+  "code": 1000,
+  "data": {
+    "list": [ /* 菜单树 */ ],
+    "perms": ["user:list", "user:add", "role:list"]
+  }
+}
+```
+
+超管（`userId=1` 或角色含 `1`）返回全部菜单。
+
+## 个人信息
+
+| RPC | 说明 |
+| --- | --- |
+| `PersonInfo` | 查看自己（user_id 来自 token，防越权） |
+| `PersonUpdate` | 只能改自己（name/nickName/headImg/phone/email/remark） |
+| `PersonPassword` | 改密（旧密校验 + passwordV 递增 + 旧 token 失效） |
+
+## 操作日志
+
+写日志前对敏感参数脱敏（密码 / 验证码 / token 不落库）：

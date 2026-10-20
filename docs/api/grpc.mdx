@@ -1,0 +1,78 @@
+---
+title: "gRPC API 概览"
+description: "服务清单与调试方法"
+---
+
+## 服务清单
+
+| 包 | 服务 | 说明 |
+| --- | --- | --- |
+| `internal.v1` | `InternalService` | Hello / Health（免鉴权） |
+| `base.v1` | `BaseOpenService` | 登录 / 个人信息 / EPS |
+| `base.v1` | `BaseSysUserService` | 用户管理 |
+| `base.v1` | `BaseSysRoleService` | 角色管理 |
+| `base.v1` | `BaseSysDepartmentService` | 部门管理 |
+| `base.v1` | `BaseSysMenuService` | 菜单权限 |
+| `base.v1` | `BaseSysLogService` | 操作日志 |
+| `base.v1` | `BaseCommService` | 文件上传下载 |
+| `demo.v1` | `DemoSampleService` | CRUD 示范 |
+| `dict.v1` | `DictTypeService` | 字典类型 |
+| `dict.v1` | `DictInfoService` | 字典条目 |
+| `space.v1` | `SpaceTypeService` | 空间分类 |
+| `space.v1` | `SpaceInfoService` | 空间文件 |
+| `task.v1` | `TaskInfoService` | 定时任务 |
+
+## Server Reflection
+
+服务默认启用 gRPC Reflection，可用 `grpcurl` 直接调试：
+
+```bash
+# 列出所有服务
+grpcurl -plaintext localhost:8001 list
+
+# 查看服务方法
+grpcurl -plaintext localhost:8001 describe base.v1.BaseOpenService
+
+# 查看消息结构
+grpcurl -plaintext localhost:8001 describe base.v1.LoginReq
+```
+
+## 调试技巧
+
+<CodeGroup>
+```bash 列出服务
+grpcurl -plaintext localhost:8001 list
+```
+
+```bash 查看签名
+grpcurl -plaintext localhost:8001 describe base.v1.BaseOpenService
+```
+
+```bash 带鉴权调用
+grpcurl -plaintext -H "authorization: Bearer $TOKEN" \
+  -d '{}' localhost:8001 base.v1.BaseOpenService/PersonInfo
+```
+
+```bash 开启调试日志
+RUST_LOG=debug ./target/release/cool-admin-rust
+```
+</CodeGroup>
+
+## 鉴权要求
+
+| 接口 | 鉴权 |
+| --- | --- |
+| `Captcha` / `Login` / `RefreshToken` | 免鉴权 |
+| `internal.v1.*` | 免鉴权 |
+| 其他所有接口 | 需要 `Bearer <token>` |
+
+## 响应约定
+
+所有响应包含 `code` / `message`：
+
+| code | 含义 |
+| --- | --- |
+| `1000` | 成功 |
+| `1001` | 业务失败（message 为原因） |
+
+详见 [响应约定](/concepts/response)。

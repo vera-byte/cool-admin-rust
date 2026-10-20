@@ -1,0 +1,84 @@
+---
+title: "cool-tools CLI"
+description: "脚手架工具：init / run / build / module"
+---
+
+`cool-tools` 是项目内置的开发工具，对齐 cool-admin-go 的 cool-tools。
+
+## 安装
+
+```bash
+cargo build --release -p cool-tools
+./target/release/cool-tools version
+```
+
+## 命令
+
+<AccordionGroup>
+  <Accordion title="cool-tools version">
+    打印版本信息。
+
+    ```bash
+    cool-tools version
+    # cool-tools 0.1.0
+    # cool-admin-rust 0.1.0
+    ```
+  </Accordion>
+
+  <Accordion title="cool-tools init <name>">
+    创建新项目骨架（Cargo.toml / main.rs / config.yaml / README）。
+
+    ```bash
+    cool-tools init my-project
+    cd my-project && cargo run
+    ```
+  </Accordion>
+
+  <Accordion title="cool-tools run">
+    透传 `cargo run`，开发启动。
+
+    ```bash
+    cool-tools run
+    cool-tools run -- --release
+    ```
+  </Accordion>
+
+  <Accordion title="cool-tools build">
+    构建（默认 debug，`--release` 发布）。
+
+    ```bash
+    cool-tools build --release
+    ```
+  </Accordion>
+
+  <Accordion title="cool-tools module <name>">
+    生成模块骨架（model / service / handler）。
+
+    ```bash
+    cool-tools module order
+    ```
+
+    生成文件树：
+
+    ```text
+    crates/modules/order/
+    ├── Cargo.toml
+    └── src/
+        ├── lib.rs
+        ├── model/{mod.rs, order.rs}
+        ├── service/mod.rs
+        └── handler/mod.rs
+    ```
+
+    <Warning>
+      生成后需手动完成三步：加入 workspace members、添加 proto、注册服务。
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## 版本管理
+
+```bash
+./scripts/version.sh          # 查看当前版本
+./scripts/version.sh 0.2.0   # 更新 workspace 版本
+```

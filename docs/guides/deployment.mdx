@@ -1,0 +1,104 @@
+---
+title: "部署"
+description: "Docker Compose、Dockerfile 与 gRPC-Web 网关"
+---
+
+## Docker Compose
+
+一键启动 MySQL + Redis + 应用：
+
+```bash
+docker compose up -d
+```
+
+服务拓扑：
+
+| 服务 | 端口 | 说明 |
+| --- | --- | --- |
+| `mysql` | 3306 | 数据库（cooltest） |
+| `redis` | 6379 | 缓存 / 分布式函数 |
+| `app` | 8001 | gRPC 服务 |
+
+<Note>
+  首次启动自动执行 SQL 迁移并写入种子数据（admin / 123456）。
+</Note>
+
+## Dockerfile
+
+`deploy/Dockerfile` 采用多阶段构建：
+
+```dockerfile
+FROM rust:1.85-bookworm AS builder
+WORKDIR /src
+RUN apt-get update && apt-get install -y protobuf-compiler
+COPY . .
+RUN cargo build --release -p server
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=builder /src/target/release/cool-admin-rust /app/
+COPY manifest/config/config.yaml /app/manifest/config/config.yaml
+COPY migrations /app/migrations
+EXPOSE 8001
+ENTRYPOINT ["/app/cool-admin-rust"]
+```
+
+## 环境变量
+
+生产环境用环境变量覆盖敏感配置：
+
+```yaml
+# docker-compose.yml
+environment:
+  COOL_DATABASE__DEFAULT__HOST: "mysql"
+  COOL_REDIS__COOL__ADDRESS: "redis:6379"
+  COOL_MODULES__BASE__JWT__SECRET: "your-strong-secret"
+```
+
+## gRPC-Web 网关
+
+浏览器无法直接调用 gRPC，需 Envoy 代理（`deploy/envoy.yaml`）：
+
+```bash
+docker run --rm -p 8080:8080 \
+  -v $(pwd)/deploy/envoy.yaml:/etc/envoy/envoy.yaml \
+  envoyproxy/envoy:v1.29-latest
+```
+
+```mermaid
+flowchart LR
+    B[浏览器] -->|gRPC-Web :8080| E[Envoy]
+    E -->|gRPC :8001| S[cool-admin-rust]
+```
+
+## 静态文件
+
+local 驱动的文件落在 `public/`，由 nginx 提供静态服务：
+
+```nginx
+server {
+  listen 8002;
+  root /app/public;
+  location /public/ {
+    expires 30d;
+  }
+}
+```
+
+## 健康检查
+
+```bash
+grpcurl -plaintext -d '{}' localhost:8001 internal.v1.InternalService/Health
+```
+
+```json
+{
+  "code": 1000,
+  "data": {
+    "status": "up",
+    "database": true,
+    "redis": true,
+    "mode": "prod"
+  }
+}
+```
