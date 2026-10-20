@@ -1,0 +1,341 @@
+syntax = "proto3";
+
+package base.v1;
+
+// 角色管理
+service BaseSysRoleService {
+  rpc Page(RolePageReq) returns (RolePageRes);
+  rpc List(RoleListReq) returns (RoleListRes);
+  rpc Info(RoleInfoReq) returns (RoleInfoRes);
+  rpc Add(RoleAddReq) returns (RoleAddRes);
+  rpc Update(RoleUpdateReq) returns (RoleUpdateRes);
+  rpc Delete(RoleDeleteReq) returns (RoleDeleteRes);
+}
+
+message SysRole {
+  int64 id = 1;
+  string name = 2;
+  string label = 3;
+  string remark = 4;
+  int64 create_time = 5;
+  int64 update_time = 6;
+  repeated int64 menu_ids = 7;
+  repeated int64 department_ids = 8;
+}
+
+message RolePageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  string order = 4;
+  string sort = 5;
+}
+
+message RolePageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SysRole list = 4;
+}
+
+message RoleListReq {
+  string keyword = 1;
+}
+
+message RoleListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysRole list = 3;
+}
+
+message RoleInfoReq {
+  int64 id = 1;
+}
+
+message RoleInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysRole data = 3;
+}
+
+message RoleAddReq {
+  string name = 1;
+  string label = 2;
+  string remark = 3;
+  repeated int64 menu_ids = 4;
+  repeated int64 department_ids = 5;
+}
+
+message RoleAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysRole data = 3;
+}
+
+message RoleUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional string label = 3;
+  optional string remark = 4;
+  repeated int64 menu_ids = 5;
+  repeated int64 department_ids = 6;
+}
+
+message RoleUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message RoleDeleteReq {
+  repeated int64 ids = 1;
+}
+
+message RoleDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+// 部门管理
+service BaseSysDepartmentService {
+  rpc List(DeptListReq) returns (DeptListRes);
+  rpc Tree(DeptTreeReq) returns (DeptTreeRes);
+  rpc Info(DeptInfoReq) returns (DeptInfoRes);
+  rpc Add(DeptAddReq) returns (DeptAddRes);
+  rpc Update(DeptUpdateReq) returns (DeptUpdateRes);
+  rpc Delete(DeptDeleteReq) returns (DeptDeleteRes);
+}
+
+message SysDepartment {
+  int64 id = 1;
+  string name = 2;
+  int64 parent_id = 3;
+  int32 sort = 4;
+  int64 create_time = 5;
+  int64 update_time = 6;
+  repeated SysDepartment children = 7;
+}
+
+message DeptListReq {
+  string keyword = 1;
+}
+
+message DeptListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysDepartment list = 3;
+}
+
+message DeptTreeReq {
+  string keyword = 1;
+}
+
+message DeptTreeRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysDepartment list = 3;
+}
+
+message DeptInfoReq {
+  int64 id = 1;
+}
+
+message DeptInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysDepartment data = 3;
+}
+
+message DeptAddReq {
+  string name = 1;
+  int64 parent_id = 2;
+  int32 sort = 3;
+}
+
+message DeptAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysDepartment data = 3;
+}
+
+message DeptUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional int64 parent_id = 3;
+  optional int32 sort = 4;
+}
+
+message DeptUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message DeptDeleteReq {
+  repeated int64 ids = 1;
+}
+
+message DeptDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+// 菜单权限
+service BaseSysMenuService {
+  rpc List(MenuListReq) returns (MenuListRes);
+  rpc Tree(MenuTreeReq) returns (MenuTreeRes);
+  rpc Info(MenuInfoReq) returns (MenuInfoRes);
+  rpc Add(MenuAddReq) returns (MenuAddRes);
+  rpc Update(MenuUpdateReq) returns (MenuUpdateRes);
+  rpc Delete(MenuDeleteReq) returns (MenuDeleteRes);
+  // 当前用户权限（菜单树 + perms）
+  rpc Perms(MenuPermsReq) returns (MenuPermsRes);
+}
+
+message SysMenu {
+  int64 id = 1;
+  string name = 2;
+  int64 parent_id = 3;
+  string router = 4;
+  string perms = 5;
+  int32 type = 6;
+  string icon = 7;
+  int32 order_num = 8;
+  string view_path = 9;
+  int32 keep_alive = 10;
+  int32 is_show = 11;
+  int32 is_auth = 12;
+  string remark = 13;
+  int64 create_time = 14;
+  int64 update_time = 15;
+  repeated SysMenu children = 16;
+}
+
+message MenuListReq {
+  string keyword = 1;
+}
+
+message MenuListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysMenu list = 3;
+}
+
+message MenuTreeReq {
+  string keyword = 1;
+}
+
+message MenuTreeRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysMenu list = 3;
+}
+
+message MenuInfoReq {
+  int64 id = 1;
+}
+
+message MenuInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysMenu data = 3;
+}
+
+message MenuAddReq {
+  string name = 1;
+  int64 parent_id = 2;
+  string router = 3;
+  string perms = 4;
+  int32 type = 5;
+  string icon = 6;
+  int32 order_num = 7;
+  string view_path = 8;
+  int32 keep_alive = 9;
+  int32 is_show = 10;
+  int32 is_auth = 11;
+  string remark = 12;
+}
+
+message MenuAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysMenu data = 3;
+}
+
+message MenuUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional int64 parent_id = 3;
+  optional string router = 4;
+  optional string perms = 5;
+  optional int32 type = 6;
+  optional string icon = 7;
+  optional int32 order_num = 8;
+  optional string view_path = 9;
+  optional int32 keep_alive = 10;
+  optional int32 is_show = 11;
+  optional int32 is_auth = 12;
+  optional string remark = 13;
+}
+
+message MenuUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message MenuDeleteReq {
+  repeated int64 ids = 1;
+}
+
+message MenuDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message MenuPermsReq {}
+
+message MenuPermsRes {
+  int32 code = 1;
+  string message = 2;
+  MenuPermsData data = 3;
+}
+
+message MenuPermsData {
+  repeated SysMenu list = 1;
+  repeated string perms = 2;
+}
+
+// 操作日志（只读）
+service BaseSysLogService {
+  rpc Page(LogPageReq) returns (LogPageRes);
+}
+
+message SysLog {
+  int64 id = 1;
+  int64 user_id = 2;
+  string username = 3;
+  string action = 4;
+  string method = 5;
+  string params = 6;
+  string ip = 7;
+  string result = 8;
+  int64 create_time = 9;
+}
+
+message LogPageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  optional int64 user_id = 4;
+}
+
+message LogPageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SysLog list = 4;
+}

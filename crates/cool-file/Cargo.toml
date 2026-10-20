@@ -1,0 +1,18 @@
+[package]
+name = "cool-file"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "文件存储驱动：local / minio / oss"
+
+[dependencies]
+cool-core = { workspace = true }
+
+tokio = { workspace = true }
+async-trait = "0.1"
+bytes = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+rand = "0.8"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1"

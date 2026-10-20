@@ -1,0 +1,14 @@
+[package]
+name = "cool-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "cool-admin-rust 数据层：连接池、迁移"
+
+[dependencies]
+cool-core = { workspace = true }
+
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

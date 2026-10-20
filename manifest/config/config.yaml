@@ -1,0 +1,58 @@
+# cool-admin-rust 配置（字段对齐 cool-admin-go manifest/config/config.yaml）
+
+server:
+  address: "0.0.0.0:8001"
+  # gRPC 反射（grpcurl / 调试）
+  reflection: true
+  max_decoding_message_size: 104857600
+  # 日志默认级别（可被 RUST_LOG 覆盖）
+  log_level: "info"
+
+database:
+  default:
+    type: "mysql"
+    host: "127.0.0.1"
+    port: 3306
+    user: "root"
+    pass: "123456"
+    name: "cooltest"
+    max_connections: 20
+    min_connections: 1
+    connect_timeout_secs: 5
+
+redis:
+  cool:
+    address: "127.0.0.1:6379"
+    db: 0
+
+cool:
+  # 运行模式: dev | prod | cool-tools
+  mode: "dev"
+  autoMigrate: true
+  eps: true
+  # 数据库不可用时是否直接退出
+  dbRequired: false
+  file:
+    mode: "local" # local | minio | oss
+    domain: "http://127.0.0.1:8002"
+    oss:
+      endpoint: "127.0.0.1:9000"
+      accessKeyID: ""
+      secretAccessKey: ""
+      bucketName: "cool-admin-rust"
+      useSSL: false
+      location: "us-east-1"
+
+modules:
+  base:
+    jwt:
+      sso: false
+      secret: "cool-base88776655"
+      token:
+        expire: 10
+        refreshExpire: 1296000
+    middleware:
+      authority:
+        enable: true
+      log:
+        enable: true

@@ -1,0 +1,332 @@
+# CoolAdminRust
+
+> CoolAdminGo 的 Rust 重写版：**不再使用 Web 框架，对外统一 gRPC**。
+> 完整实现方案见 [RUST_IMPLEMENTATION_PLAN.md](../cool-admin-go/RUST_IMPLEMENTATION_PLAN.md)（决策 D1–D5 已锁定）。
+
+| | |
+|---|---|
+| 协议 | gRPC（tonic 0.12 + prost 0.13），启用 Server Reflection |
+| 运行时 | tokio |
+| 数据库 | SQLx（MySQL）+ `migrations/` SQL 迁移 |
+| 状态 | **M0–M5 已完成**（含安全回归 / 部署 / CHANGELOG） |
+
+---
+
+## 1. 目录结构
+
+```
+cool-admin-rust/
+├── Cargo.toml                 # workspace 根
+├── rust-toolchain.toml
+├── proto/                     # .proto 契约（单一事实来源）
+│   ├── common/v1/common.proto # BaseRes / IdsReq / PageQuery 等公共消息
+│   └── internal/v1/internal.proto  # InternalService: Hello / Health
+├── crates/
+│   ├── cool-proto/            # proto 生成代码（build.rs + tonic-build）
+│   ├── cool-core/             # 核心框架：错误码、响应、日志、鉴权、CRUD 引擎
+│   ├── cool-db/               # SQLx 连接池 + 迁移
+│   ├── modules/demo/          # demo 演示模块（DemoSample CRUD）
+│   └── server/                # gRPC 二进制入口（cool-admin-rust）
+├── migrations/                # SQL 迁移（决策 D3）
+├── manifest/config/config.yaml
+└── docs/
+```
+
+---
+
+## 2. 快速开始
+
+### 2.1 依赖
+
+- Rust 1.85+（`rust-toolchain.toml` 锁定 stable）
+- `protoc`（编译 proto；macOS: `brew install protobuf`）
+- 可选 MySQL（未启动时服务降级运行，Hello/Health 仍可用）
+
+### 2.2 构建 / 测试 / 运行
+
+```bash
+# 构建
+cargo build
+
+# 单元测试
+cargo test
+
+# 运行（默认读取 manifest/config/config.yaml）
+cargo run -p server
+# 或
+./target/debug/cool-admin-rust
+```
+
+启动日志示例：
+
+```text
+INFO cool_admin_rust: starting cool-admin-rust mode=dev addr=0.0.0.0:8001
+WARN cool_db: database unavailable, continue without db: ...
+INFO cool_admin_rust: gRPC reflection enabled
+INFO cool_admin_rust: gRPC server listening addr=0.0.0.0:8001
+```
+
+### 2.3 用 grpcurl 验收（M0 交付标准）
+
+```bash
+# 服务发现
+grpcurl -plaintext localhost:8001 list
+# grpc.reflection.v1.ServerReflection
+# internal.v1.InternalService
+
+# Hello
+grpcurl -plaintext -d '{"name":"M0"}' localhost:8001 internal.v1.InternalService/Hello
+# { "code": 1000, "message": "ok", "data": { "greeting": "Hello, M0! ...", "instanceId": "..." } }
+
+# Health
+grpcurl -plaintext -d '{}' localhost:8001 internal.v1.InternalService/Health
+# { "code": 1000, "message": "ok", "data": { "status": "degraded", "mode": "dev", "instanceId": "..." } }
+```
+
+---
+
+## 3. 核心约定
+
+### 3.1 业务响应（对齐 cool-admin-go）
+
+| 场景 | `code` | 传输 Status |
+|---|---|---|
+| 成功 | **1000** | `OK` |
+| 业务失败 | **1001**（响应体） | `OK` 或业务码 |
+| 未认证 | 1001 | `UNAUTHENTICATED` (16) |
+| 无权限 | 1001 | `PERMISSION_DENIED` (7) |
+| 内部错误 | 1001 | `INTERNAL` (13) |
+
+决策 **D1**：各 RPC 使用 **typed data**（`HelloRes { code, message, HelloData data }`），不用 `google.protobuf.Any`。
+
+### 3.2 中间件链
+
+```
+请求 → LoggingLayer（耗时/状态） → AuthLayer（白名单/Bearer） → gRPC Handler
+```
+
+- **AuthLayer**：读取 gRPC 方法路径 `:path`；白名单（`internal.v1.InternalService/*`、reflection）直接放行；其余要求 `authorization: Bearer <token>`。
+- M2 起接入 JWT / 登录缓存 / 数据权限（对齐 Go 版 `modules/base`）。
+
+### 3.3 通用 CRUD 引擎（M1）
+
+```
+cool-core/
+├── model.rs    # Model trait、ColumnMeta（可写/可过滤白名单）、FieldMap
+├── query.rs    # safe_order_by（防注入）、QueryOp、WHERE/ORDER 构造
+├── repo.rs     # CrudRepo<M>: add/delete/update/info/list/page
+└── crud.rs     # CrudService trait（modify_before/after 钩子）
+```
+
+- **软删除**：查询自动过滤 `deleteTime IS NULL`，Delete = `UPDATE deleteTime = NOW(3)`
+- **UniqueKey / NotNullKey**：Add/Update 时校验，错误提示可配置
+- **列白名单**：Add/Update 只接受模型声明为 `rw` 的列，拒绝非法字段
+- **排序白名单**：`safe_order_by` 对齐 Go 正则 `^[A-Za-z0-9_.]+(,[A-Za-z0-9_.]+)*$`
+- **分页**：`page/size`，`isExport + maxExportLimit` 对齐 Go PageReq
+
+demo 模块（`demo.v1.DemoSampleService`）暴露 6 + 1 接口：
+
+| RPC | 说明 |
+|---|---|
+| `Add` | 新增（name 必填、唯一） |
+| `Delete` | 批量软删 `ids[]` |
+| `Update` | 按 id 局部更新 |
+| `Info` | 详情 |
+| `List` | 列表（keyword 模糊 name/remark + name 等值） |
+| `Page` | 分页（order/sort + 导出上限） |
+| `Welcome` | 扩展示例接口 |
+
+grpcurl 示例（需带令牌，M1 仅校验 Bearer 存在）：
+
+```bash
+H='authorization: Bearer dev-token'
+grpcurl -plaintext -H "$H" -d '{"name":"n1","remark":"r1"}' \
+  localhost:8001 demo.v1.DemoSampleService/Add
+grpcurl -plaintext -H "$H" -d '{"page":1,"size":5,"order":"id","sort":"desc"}' \
+  localhost:8001 demo.v1.DemoSampleService/Page
+```
+
+### 3.4 base 权限体系（M2）
+
+| 服务 | 接口 |
+|---|---|
+| `BaseOpenService` | Captcha / Login / RefreshToken / Logout / PersonInfo / PersonUpdate / PersonPassword |
+| `BaseSysUserService` | Page / List / Info / Add / Update / Delete |
+| `BaseSysRoleService` | Page / List / Info / Add / Update / Delete（含菜单/部门关联） |
+| `BaseSysDepartmentService` | List / Tree / Info / Add / Update / Delete |
+| `BaseSysMenuService` | List / Tree / Info / Add / Update / Delete / Perms |
+| `BaseSysLogService` | Page |
+
+**安全项**（对齐 cool-admin-go 1.5.12 加固清单）：
+
+- [x] 密码 **argon2** 哈希；旧 MD5 存量登录后自动升级（决策 D5）
+- [x] 列表/详情**不回传 password**
+- [x] 验证码一次性、5 分钟过期
+- [x] 同账号登录失败 5 次锁定 10 分钟
+- [x] 统一「账户或密码不正确」防用户名枚举
+- [x] refreshToken 校验服务端缓存；登出后立即失效
+- [x] 改密 `passwordV+1`，旧 token 立即失效
+- [x] JWT 弱密钥黑名单 + 最短 16 位
+- [x] PersonUpdate 只能改自己（user_id 来自 token）
+- [x] AuthLayer 真实 JWT 校验，未登录返回 `UNAUTHENTICATED`
+
+默认管理员：`admin / 123456`（迁移种子写入）。
+
+```bash
+# 完整登录链路
+grpcurl -plaintext -d '{}' localhost:8001 base.v1.BaseOpenService/Captcha
+grpcurl -plaintext -d '{"username":"admin","password":"123456","captchaId":"...","verifyCode":"..."}' \
+  localhost:8001 base.v1.BaseOpenService/Login
+grpcurl -plaintext -H "authorization: Bearer <token>" -d '{}' \
+  localhost:8001 base.v1.BaseOpenService/PersonInfo
+```
+
+### 3.5 M3 模块：dict / space / task / 分布式函数 / 文件
+
+| 服务 | 接口 |
+|---|---|
+| `DictTypeService` / `DictInfoService` | 6 CRUD + `Data(types)` 聚合 |
+| `SpaceTypeService` / `SpaceInfoService` | 6 CRUD（上传走 BaseComm） |
+| `TaskInfoService` | 6 CRUD + Start/Stop/Once/Log |
+| `BaseCommService` | UploadMode / Upload(bytes) / Download |
+
+- **分布式函数**：`CoolFunc` trait（`is_singleton` / `is_all_worker`）、`run_func("Name(arg)")`、
+  `cluster_run_func`（Redis PUBLISH `cool:func` 或本地）、`listen_func` SUBSCRIBE 循环。
+  master 选举键 `cool:masterflag`（60s TTL）。内置：`BaseFuncClearLog` / `TaskStartFunc` /
+  `TaskStopFunc` / `TaskAddTask` / `TaskTest`。
+- **任务调度**：6 段 cron（含秒）+ `@every` + `@yearly/@daily/...`；interval 任务直接用毫秒间隔；
+  startDate 门闩；singleton 防重叠；成功日志每任务保留最新 20 条。
+- **文件**：`local`（`public/uploads/Ymd/`）/ `minio` / `oss`；`get_mode()` 对 minio/oss 返回
+  `mode="local"`（对齐 Go，前端走代理上传）。静态目录由 nginx 提供（`cool.file.domain`）。
+
+### 3.5.1 EPS 与数据范围（M4）
+
+- **EPS**：`BaseOpenService.Eps` / `EpsApp` 返回接口权限元数据（module/prefix/api[method,path,summary]），
+  供前端动态菜单/按钮权限使用。注册表 `cool-core::eps`，启动时由 `server/eps.rs` 全量登记。
+- **部门数据范围**：用户 Page/List 按当前用户的「自身部门 + 角色关联部门」过滤；
+  超管（userId=1 或角色含 1）不受限。对齐 Go 版 1.5.12 越权修复。
+
+### 3.5.2 cool-tools CLI
+
+```bash
+cool-tools version           # 版本
+cool-tools init my-proj      # 脚手架新项目
+cool-tools run               # cargo run 透传
+cool-tools build --release   # 发布构建
+cool-tools module demo_x     # 生成模块骨架（model/service/handler）
+```
+
+### 3.6 配置
+
+`manifest/config/config.yaml`，可用环境变量覆盖（前缀 `COOL_`，`__` 分隔层级）：
+
+```bash
+COOL_SERVER__ADDRESS=0.0.0.0:9001 ./target/debug/cool-admin-rust
+```
+
+关键字段与 cool-admin-go 保持同名：`server.address`、`database.default`、`cool.autoMigrate`、`modules.base.jwt` 等。
+
+### 3.7 数据库
+
+- 连接失败**不阻断启动**（`cool.dbRequired: true` 时才强制退出）
+- `cool.autoMigrate: true` 时启动执行 `migrations/`
+- 公共列命名对齐 Go 版：`createTime` / `updateTime` / `deleteTime`（软删）
+
+---
+
+## 4. crate 说明
+
+| crate | 职责 | 对应 Go |
+|---|---|---|
+| `cool-proto` | proto 生成代码、`CODE_SUCCESS/CODE_FAIL`、reflection descriptor | — |
+| `cool-core` | `CoolError`、`ok_code/fail_code`、`AuthLayer`、`LoggingLayer`、实例 ID | `cool/` |
+| `cool-db` | SQLx 池、`migrate!`、探活 | `cool/cooldb` |
+| `server` | 配置加载、服务装配、优雅退出 | `internal/cmd` |
+
+---
+
+## 5. 测试
+
+```bash
+# 集成测试需要本地 MySQL
+# docker run -d --name cool-mysql -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_DATABASE=cooltest -p 3306:3306 mysql:8
+cargo test
+```
+
+当前覆盖 **18 项**：
+
+| 用例 | 位置 | 数量 |
+|---|---|---|
+| 排序白名单 / WHERE 构造 / 注入防护 | `cool-core/src/query.rs` | 6 |
+| 标识符安全 / 列白名单 | `cool-core/src/model.rs` | 2 |
+| 鉴权路径、Bearer、白名单 | `cool-core/src/auth.rs` | 4 |
+| 成功/失败错误码 | `cool-core/src/response.rs` | 1 |
+| 最小 YAML 配置解析 | `server/src/config.rs` | 1 |
+| demo 列元信息 | `modules/demo/src/model/` | 1 |
+| CRUD 全流程（增删改查/唯一/非空/软删/分页/非法列） | `modules/demo/tests/` | 2 |
+
+集成验收（本机已跑通）：grpcurl Add/Page/List/Info/Update/Delete/Welcome + 唯一键拒绝 + ORDER BY 注入忽略。
+
+---
+
+## 6. 路线图
+
+| 里程碑 | 内容 | 状态 |
+|---|---|---|
+| **M0** | workspace、proto、核心约定、配置、tracing、Hello/Health、reflection | ✅ |
+| **M1** | CRUD 引擎（Model/Query/Repo/CrudService）+ demo 模块 6+1 接口 | ✅ |
+| **M2** | base 权限体系（登录/JWT/用户/角色/部门/菜单/日志 + 安全项） | ✅ |
+| **M3** | dict / space / task / 分布式函数（Redis pub/sub）/ 文件存储（local/minio/oss） | ✅ |
+| **M4** | EPS 元数据、部门数据范围、cool-tools CLI、文档 | ✅ |
+| **M5** | 安全回归、部署（Dockerfile/compose/Envoy）、CHANGELOG、gRPC-Web | ✅ |
+
+---
+
+## 7. 部署
+
+### docker-compose（MySQL + Redis + App）
+
+```bash
+docker compose up -d
+# 默认账号 admin / 123456
+```
+
+### Dockerfile
+
+`deploy/Dockerfile`：多阶段构建（rust:1.85 → debian-slim），产物 `/app/cool-admin-rust`。
+
+### gRPC-Web 前端对接
+
+浏览器无法直接调 gRPC，需代理。`deploy/envoy.yaml` 提供 **Envoy gRPC-Web** 示例：
+
+```bash
+# 8080 = gRPC-Web，转发到 app:8001
+docker run --rm -p 8080:8080 \
+  -v $(pwd)/deploy/envoy.yaml:/etc/envoy/envoy.yaml \
+  envoyproxy/envoy:v1.29-latest
+```
+
+前端用 `connect-es` / `grpc-web` 客户端指向 `http://localhost:8080`，
+元数据带 `authorization: Bearer <JWT>`。业务码约定：`code=1000` 成功、`1001` 失败。
+
+### 版本脚本
+
+```bash
+./scripts/version.sh          # 查看
+./scripts/version.sh 0.2.0   # 更新 workspace 版本
+```
+
+## 8. 前端对接（gRPC-Web）
+
+后端纯 gRPC（无 HTTP Web 框架）。前端接入方式（决策 D4）：
+
+1. **gRPC-Web**（推荐）：Envoy / `grpc-web` 代理，浏览器用 connect-es 或 grpc-web 客户端
+2. **Connect-RPC**：tonic 侧加 connect 适配
+3. **临时网关**：REST → gRPC 转换，前端几乎不改
+
+统一约定：`authorization: Bearer <JWT>` 元数据、`code=1000/1001` 业务码、typed data。
+
+## 9. 相关文档
+
+- 实现方案（Go → Rust 对照、架构、阶段计划）：`cool-admin-go/RUST_IMPLEMENTATION_PLAN.md`
+- CoolAdminGo 使用文档：`cool-admin-go/docs/`

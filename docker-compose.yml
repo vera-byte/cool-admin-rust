@@ -1,0 +1,70 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: cool-rust-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: cooltest
+    ports:
+      - "3306:3306"
+    volumes:
+      - cool_mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    container_name: cool-rust-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # 可选：MinIO（file.mode=minio 时启用）
+  # minio:
+  #   image: minio/minio
+  #   container_name: cool-rust-minio
+  #   environment:
+  #     MINIO_ROOT_USER: accessKeyID
+  #     MINIO_ROOT_PASSWORD: secretAccessKey
+  #   ports:
+  #     - "9000:9000"
+  #   command: server /data
+
+  # 可选：gRPC-Web 代理（前端浏览器接入）
+  # envoy:
+  #   image: envoyproxy/envoy:v1.29-latest
+  #   container_name: cool-rust-envoy
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./deploy/envoy.yaml:/etc/envoy/envoy.yaml
+
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: cool-rust-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      COOL_REDIS__COOL__ADDRESS: "redis:6379"
+      COOL_DATABASE__DEFAULT__HOST: "mysql"
+    ports:
+      - "8001:8001"
+    volumes:
+      - cool_public_data:/app/public
+
+volumes:
+  cool_mysql_data:
+  cool_public_data:

@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package dict.v1;
+
+import "common/v1/common.proto";
+
+// 字典类型
+service DictTypeService {
+  rpc Add(DictTypeAddReq) returns (DictTypeAddRes);
+  rpc Delete(common.v1.IdsReq) returns (DictTypeDeleteRes);
+  rpc Update(DictTypeUpdateReq) returns (DictTypeUpdateRes);
+  rpc Info(common.v1.IdReq) returns (DictTypeInfoRes);
+  rpc List(DictTypeListReq) returns (DictTypeListRes);
+  rpc Page(DictTypePageReq) returns (DictTypePageRes);
+}
+
+message DictType {
+  int64 id = 1;
+  string name = 2;
+  string key = 3;
+  int64 create_time = 4;
+  int64 update_time = 5;
+}
+
+message DictTypeAddReq {
+  string name = 1;
+  string key = 2;
+}
+message DictTypeAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional DictType data = 3;
+}
+message DictTypeUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional string key = 3;
+}
+message DictTypeUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message DictTypeDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message DictTypeInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional DictType data = 3;
+}
+message DictTypeListReq {
+  string keyword = 1;
+}
+message DictTypeListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated DictType list = 3;
+}
+message DictTypePageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+}
+message DictTypePageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated DictType list = 4;
+}
+
+// 字典条目
+service DictInfoService {
+  rpc Add(DictInfoAddReq) returns (DictInfoAddRes);
+  rpc Delete(common.v1.IdsReq) returns (DictInfoDeleteRes);
+  rpc Update(DictInfoUpdateReq) returns (DictInfoUpdateRes);
+  rpc Info(common.v1.IdReq) returns (DictInfoInfoRes);
+  rpc List(DictInfoListReq) returns (DictInfoListRes);
+  rpc Page(DictInfoPageReq) returns (DictInfoPageRes);
+  // 按类型 key 聚合（对齐 Go /admin/dict/info/data）
+  rpc Data(DictDataReq) returns (DictDataRes);
+}
+
+message DictInfo {
+  int64 id = 1;
+  int64 type_id = 2;
+  string name = 3;
+  int32 order_num = 4;
+  string remark = 5;
+  int64 parent_id = 6;
+  int64 create_time = 7;
+  int64 update_time = 8;
+}
+
+message DictInfoAddReq {
+  int64 type_id = 1;
+  string name = 2;
+  int32 order_num = 3;
+  string remark = 4;
+  int64 parent_id = 5;
+}
+message DictInfoAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional DictInfo data = 3;
+}
+message DictInfoUpdateReq {
+  int64 id = 1;
+  optional int64 type_id = 2;
+  optional string name = 3;
+  optional int32 order_num = 4;
+  optional string remark = 5;
+  optional int64 parent_id = 6;
+}
+message DictInfoUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message DictInfoDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message DictInfoInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional DictInfo data = 3;
+}
+message DictInfoListReq {
+  string keyword = 1;
+  optional int64 type_id = 2;
+}
+message DictInfoListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated DictInfo list = 3;
+}
+message DictInfoPageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  optional int64 type_id = 4;
+}
+message DictInfoPageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated DictInfo list = 4;
+}
+
+message DictDataReq {
+  // 类型 key 列表，空表示全部
+  repeated string types = 1;
+}
+
+message DictDataItem {
+  int64 id = 1;
+  string name = 2;
+  int64 parent_id = 3;
+  int64 type_id = 4;
+}
+
+message DictDataList {
+  repeated DictDataItem items = 1;
+}
+
+message DictDataRes {
+  int32 code = 1;
+  string message = 2;
+  map<string, DictDataList> data = 3;
+}

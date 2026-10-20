@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package base.v1;
+
+// 系统用户管理
+service BaseSysUserService {
+  rpc Page(UserPageReq) returns (UserPageRes);
+  rpc List(UserListReq) returns (UserListRes);
+  rpc Info(UserInfoReq) returns (UserInfoRes);
+  rpc Add(UserAddReq) returns (UserAddRes);
+  rpc Update(UserUpdateReq) returns (UserUpdateRes);
+  rpc Delete(UserDeleteReq) returns (UserDeleteRes);
+}
+
+message SysUser {
+  int64 id = 1;
+  int64 department_id = 2;
+  string name = 3;
+  string username = 4;
+  // 列表/详情不返回 password（安全项）
+  string nick_name = 5;
+  string head_img = 6;
+  string phone = 7;
+  string email = 8;
+  int32 status = 9;
+  string remark = 10;
+  int64 create_time = 11;
+  int64 update_time = 12;
+  repeated int64 role_ids = 13;
+}
+
+message UserPageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  string order = 4;
+  string sort = 5;
+  optional int64 department_id = 6;
+  optional int32 status = 7;
+  bool is_export = 8;
+  int32 max_export_limit = 9;
+}
+
+message UserPageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SysUser list = 4;
+}
+
+message UserListReq {
+  string keyword = 1;
+  optional int64 department_id = 2;
+}
+
+message UserListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SysUser list = 3;
+}
+
+message UserInfoReq {
+  int64 id = 1;
+}
+
+message UserInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysUser data = 3;
+}
+
+message UserAddReq {
+  int64 department_id = 1;
+  string name = 2;
+  string username = 3;
+  string password = 4;
+  string nick_name = 5;
+  string phone = 6;
+  string email = 7;
+  int32 status = 8;
+  string remark = 9;
+  repeated int64 role_ids = 10;
+}
+
+message UserAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SysUser data = 3;
+}
+
+message UserUpdateReq {
+  int64 id = 1;
+  optional int64 department_id = 2;
+  optional string name = 3;
+  optional string password = 4;
+  optional string nick_name = 5;
+  optional string phone = 6;
+  optional string email = 7;
+  optional int32 status = 8;
+  optional string remark = 9;
+  repeated int64 role_ids = 10;
+}
+
+message UserUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message UserDeleteReq {
+  repeated int64 ids = 1;
+}
+
+message UserDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}

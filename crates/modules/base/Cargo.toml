@@ -1,0 +1,25 @@
+[package]
+name = "mod-base"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "base 权限体系：登录/JWT/用户/角色/部门/菜单/日志"
+
+[dependencies]
+cool-proto = { workspace = true }
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-file = { workspace = true }
+cool-func = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+async-trait = "0.1"
+tracing = { workspace = true }
+bytes = { workspace = true }
+base64 = "0.22"
+rand = "0.8"

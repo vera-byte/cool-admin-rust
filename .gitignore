@@ -1,0 +1,22 @@
+/target
+**/*.rs.bk
+.DS_Store
+*.swp
+*.swo
+.env
+.env.local
+/manifest/config/config.local.yaml
+/manifest/config/config.dev.yaml
+/logs
+/data
+
+# 运行时产物
+/public/uploads/
+/logs/
+*.log
+
+# MiMoCode 会话数据
+.mimocode/
+
+# 本地环境
+.env.*

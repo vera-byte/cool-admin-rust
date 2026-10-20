@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package base.v1;
+
+import "common/v1/common.proto";
+
+// 公共接口：文件上传（对齐 /admin/base/comm/*）
+service BaseCommService {
+  // 上传模式（前端据此决定是否走后端代理）
+  rpc UploadMode(UploadModeReq) returns (UploadModeRes);
+  // 上传（unary bytes，服务端限制 100MB）
+  rpc Upload(UploadReq) returns (UploadRes);
+  // 下载
+  rpc Download(DownloadReq) returns (DownloadRes);
+}
+
+message UploadModeReq {}
+
+message UploadModeRes {
+  int32 code = 1;
+  string message = 2;
+  UploadModeData data = 3;
+}
+
+message UploadModeData {
+  // 前端兼容：minio/oss 也返回 "local"
+  string mode = 1;
+  string type = 2;
+}
+
+message UploadReq {
+  bytes data = 1;
+  string filename = 2;
+  // 自定义对象键（可选）
+  optional string key = 3;
+}
+
+message UploadRes {
+  int32 code = 1;
+  string message = 2;
+  UploadResData data = 3;
+}
+
+message UploadResData {
+  string url = 1;
+  string path = 2;
+}
+
+message DownloadReq {
+  // 对象键或 URL 路径
+  string path = 1;
+}
+
+message DownloadRes {
+  int32 code = 1;
+  string message = 2;
+  DownloadResData data = 3;
+}
+
+message DownloadResData {
+  string filename = 1;
+  bytes data = 2;
+}

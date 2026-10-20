@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package base.v1;
+
+// 开放接口（免鉴权或登录相关）
+service BaseOpenService {
+  // 图形验证码
+  rpc Captcha(CaptchaReq) returns (CaptchaRes);
+  // 登录
+  rpc Login(LoginReq) returns (LoginRes);
+  // 刷新 token
+  rpc RefreshToken(RefreshTokenReq) returns (RefreshTokenRes);
+  // 退出登录（需鉴权）
+  rpc Logout(LogoutReq) returns (LogoutRes);
+  // 个人信息（需鉴权）
+  rpc PersonInfo(PersonInfoReq) returns (PersonInfoRes);
+  // 修改个人信息（只能改自己）
+  rpc PersonUpdate(PersonUpdateReq) returns (PersonUpdateRes);
+  // 修改密码（改密后旧 token 失效）
+  rpc PersonPassword(PersonPasswordReq) returns (PersonPasswordRes);
+  // EPS 元数据（接口权限表，对齐 /admin/base/open/eps）
+  rpc Eps(EpsReq) returns (EpsRes);
+  // App 端 EPS
+  rpc EpsApp(EpsAppReq) returns (EpsAppRes);
+}
+
+message CaptchaReq {
+  int32 width = 1;
+  int32 height = 2;
+}
+
+message CaptchaRes {
+  int32 code = 1;
+  string message = 2;
+  CaptchaData data = 3;
+}
+
+message CaptchaData {
+  string captcha_id = 1;
+  string data = 2; // data:image/svg+xml;base64,...
+}
+
+message LoginReq {
+  string username = 1;
+  string password = 2;
+  string captcha_id = 3;
+  string verify_code = 4;
+}
+
+message LoginRes {
+  int32 code = 1;
+  string message = 2;
+  TokenData data = 3;
+}
+
+message TokenData {
+  int64 expire = 1;
+  string token = 2;
+  int64 refresh_expire = 3;
+  string refresh_token = 4;
+}
+
+message RefreshTokenReq {
+  string refresh_token = 1;
+}
+
+message RefreshTokenRes {
+  int32 code = 1;
+  string message = 2;
+  TokenData data = 3;
+}
+
+message LogoutReq {}
+
+message LogoutRes {
+  int32 code = 1;
+  string message = 2;
+}
+
+message PersonInfoReq {}
+
+message PersonInfoRes {
+  int32 code = 1;
+  string message = 2;
+  PersonInfoData data = 3;
+}
+
+message PersonInfoData {
+  int64 id = 1;
+  int64 department_id = 2;
+  string name = 3;
+  string username = 4;
+  string nick_name = 5;
+  string head_img = 6;
+  string phone = 7;
+  string email = 8;
+  int32 status = 9;
+  string remark = 10;
+  repeated int64 role_ids = 11;
+  repeated string role_names = 12;
+}
+
+message PersonUpdateReq {
+  optional string name = 1;
+  optional string nick_name = 2;
+  optional string head_img = 3;
+  optional string phone = 4;
+  optional string email = 5;
+  optional string remark = 6;
+}
+
+message PersonUpdateRes {
+  int32 code = 1;
+  string message = 2;
+}
+
+message PersonPasswordReq {
+  string password = 1;
+  string new_password = 2;
+}
+
+message PersonPasswordRes {
+  int32 code = 1;
+  string message = 2;
+}
+
+message EpsReq {}
+message EpsRes {
+  int32 code = 1;
+  string message = 2;
+  // module -> ModuleMeta
+  map<string, string> data = 3; // 序列化 JSON，避免嵌套 map 复杂类型
+}
+message EpsAppReq {}
+message EpsAppRes {
+  int32 code = 1;
+  string message = 2;
+  string data = 3; // JSON 数组
+}

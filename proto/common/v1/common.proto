@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package common.v1;
+
+// 统一业务响应骨架（与 cool-admin-go BaseRes 对齐）
+// 1000 成功, 1001 业务失败
+// 注意：各服务的具体 RPC 仍使用 typed data（决策 D1），此处仅作字段约定参考。
+message BaseRes {
+  int32 code = 1;
+  string message = 2;
+}
+
+// 批量删除请求
+message IdsReq {
+  repeated int64 ids = 1;
+}
+
+// 单条查询
+message IdReq {
+  int64 id = 1;
+}
+
+// 分页/排序公共参数（与 Go 版 PageReq 对齐）
+message PageQuery {
+  int32 page = 1; // 页码, 默认 1
+  int32 size = 2; // 每页条数, 默认 15
+  string order = 3; // 排序字段, 逗号分隔
+  string sort = 4; // asc | desc
+  bool is_export = 5;
+  int32 max_export_limit = 6;
+}
+
+// 分页响应公共骨架（各服务 list 字段类型自定）
+message PageResultMeta {
+  int64 total = 1;
+}
+
+// 空消息
+message Empty {}

@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package space.v1;
+
+import "common/v1/common.proto";
+
+// 空间分类
+service SpaceTypeService {
+  rpc Add(SpaceTypeAddReq) returns (SpaceTypeAddRes);
+  rpc Delete(common.v1.IdsReq) returns (SpaceTypeDeleteRes);
+  rpc Update(SpaceTypeUpdateReq) returns (SpaceTypeUpdateRes);
+  rpc Info(common.v1.IdReq) returns (SpaceTypeInfoRes);
+  rpc List(SpaceTypeListReq) returns (SpaceTypeListRes);
+  rpc Page(SpaceTypePageReq) returns (SpaceTypePageRes);
+}
+
+message SpaceType {
+  int64 id = 1;
+  string name = 2;
+  int64 parent_id = 3;
+  int64 create_time = 4;
+  int64 update_time = 5;
+}
+
+message SpaceTypeAddReq {
+  string name = 1;
+  int64 parent_id = 2;
+}
+message SpaceTypeAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SpaceType data = 3;
+}
+message SpaceTypeUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional int64 parent_id = 3;
+}
+message SpaceTypeUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message SpaceTypeDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message SpaceTypeInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SpaceType data = 3;
+}
+message SpaceTypeListReq {
+  string keyword = 1;
+}
+message SpaceTypeListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SpaceType list = 3;
+}
+message SpaceTypePageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+}
+message SpaceTypePageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SpaceType list = 4;
+}
+
+// 空间文件索引（上传走 BaseComm.Upload，再 Add 此处）
+service SpaceInfoService {
+  rpc Add(SpaceInfoAddReq) returns (SpaceInfoAddRes);
+  rpc Delete(common.v1.IdsReq) returns (SpaceInfoDeleteRes);
+  rpc Update(SpaceInfoUpdateReq) returns (SpaceInfoUpdateRes);
+  rpc Info(common.v1.IdReq) returns (SpaceInfoInfoRes);
+  rpc List(SpaceInfoListReq) returns (SpaceInfoListRes);
+  rpc Page(SpaceInfoPageReq) returns (SpaceInfoPageRes);
+}
+
+message SpaceInfo {
+  int64 id = 1;
+  string url = 2;
+  string type = 3;
+  int64 classify_id = 4;
+  int64 create_time = 5;
+  int64 update_time = 6;
+}
+
+message SpaceInfoAddReq {
+  string url = 1;
+  string type = 2;
+  int64 classify_id = 3;
+}
+message SpaceInfoAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional SpaceInfo data = 3;
+}
+message SpaceInfoUpdateReq {
+  int64 id = 1;
+  optional string url = 2;
+  optional string type = 3;
+  optional int64 classify_id = 4;
+}
+message SpaceInfoUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message SpaceInfoDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+message SpaceInfoInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional SpaceInfo data = 3;
+}
+message SpaceInfoListReq {
+  string keyword = 1;
+  optional string type = 2;
+  optional int64 classify_id = 3;
+}
+message SpaceInfoListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated SpaceInfo list = 3;
+}
+message SpaceInfoPageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  optional string type = 4;
+  optional int64 classify_id = 5;
+}
+message SpaceInfoPageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated SpaceInfo list = 4;
+}

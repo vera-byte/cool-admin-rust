@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package demo.v1;
+
+import "common/v1/common.proto";
+
+// 演示模块：DemoSample 通用 CRUD（对齐 cool-admin-go modules/demo）
+service DemoSampleService {
+  rpc Add(DemoSampleAddReq) returns (DemoSampleAddRes);
+  rpc Delete(common.v1.IdsReq) returns (DemoSampleDeleteRes);
+  rpc Update(DemoSampleUpdateReq) returns (DemoSampleUpdateRes);
+  rpc Info(common.v1.IdReq) returns (DemoSampleInfoRes);
+  rpc List(DemoSampleListReq) returns (DemoSampleListRes);
+  rpc Page(DemoSamplePageReq) returns (DemoSamplePageRes);
+  // 扩展接口（对齐 Go 版 Welcome 演示）
+  rpc Welcome(DemoSampleWelcomeReq) returns (DemoSampleWelcomeRes);
+}
+
+// 实体
+message DemoSample {
+  int64 id = 1;
+  string name = 2;
+  string remark = 3;
+  // Unix 毫秒
+  int64 create_time = 4;
+  int64 update_time = 5;
+}
+
+message DemoSampleAddReq {
+  string name = 1;
+  string remark = 2;
+}
+
+message DemoSampleAddRes {
+  int32 code = 1;
+  string message = 2;
+  optional DemoSample data = 3;
+}
+
+message DemoSampleUpdateReq {
+  int64 id = 1;
+  optional string name = 2;
+  optional string remark = 3;
+}
+
+message DemoSampleUpdateRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message DemoSampleDeleteRes {
+  int32 code = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message DemoSampleInfoRes {
+  int32 code = 1;
+  string message = 2;
+  optional DemoSample data = 3;
+}
+
+message DemoSampleListReq {
+  // 模糊搜索（name / remark）
+  string keyword = 1;
+  string order = 2;
+  string sort = 3;
+  // 等值过滤
+  optional string name = 4;
+}
+
+message DemoSampleListRes {
+  int32 code = 1;
+  string message = 2;
+  repeated DemoSample list = 3;
+}
+
+message DemoSamplePageReq {
+  int32 page = 1;
+  int32 size = 2;
+  string keyword = 3;
+  string order = 4;
+  string sort = 5;
+  optional string name = 6;
+  bool is_export = 7;
+  int32 max_export_limit = 8;
+}
+
+message DemoSamplePageRes {
+  int32 code = 1;
+  string message = 2;
+  int64 total = 3;
+  repeated DemoSample list = 4;
+}
+
+message DemoSampleWelcomeReq {}
+
+message DemoSampleWelcomeRes {
+  int32 code = 1;
+  string message = 2;
+  WelcomeData data = 3;
+}
+
+message WelcomeData {
+  string name = 1;
+  int32 age = 2;
+}

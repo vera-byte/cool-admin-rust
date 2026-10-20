@@ -1,0 +1,9 @@
+# 项目内使用 sparse 协议镜像，避免 git 全量索引拉取过慢
+[source.crates-io]
+replace-with = "tuna-sparse"
+
+[source.tuna-sparse]
+registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+
+[net]
+retry = 3

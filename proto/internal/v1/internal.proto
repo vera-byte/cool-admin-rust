@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package internal.v1;
+
+// 内部/调试服务：健康检查与 Hello（M0 验收用）
+service InternalService {
+  // 通用 Hello，验证 gRPC 链路与拦截器
+  rpc Hello(HelloReq) returns (HelloRes);
+
+  // 健康检查：报告 DB / Redis / 运行模式
+  rpc Health(HealthReq) returns (HealthRes);
+}
+
+message HelloReq {
+  string name = 1;
+}
+
+message HelloRes {
+  int32 code = 1;
+  string message = 2;
+  HelloData data = 3;
+}
+
+message HelloData {
+  string greeting = 1;
+  string instance_id = 2;
+}
+
+message HealthReq {}
+
+message HealthRes {
+  int32 code = 1;
+  string message = 2;
+  HealthData data = 3;
+}
+
+message HealthData {
+  string status = 1;
+  bool database = 2;
+  bool redis = 3;
+  string mode = 4;
+  string instance_id = 5;
+}
