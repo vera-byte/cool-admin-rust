@@ -29,29 +29,26 @@ sequenceDiagram
 
 ```text
 cool-admin-rust/
-├── proto/                  # .proto 契约（单一事实来源）
+├── proto/                  # 共享契约（common.v1 / internal.v1）
 ├── crates/                 # 基础库（可复用）
-│   ├── cool-proto/         #   proto 生成代码 + Reflection descriptor
+│   ├── cool-proto/         #   proto 代码生成（聚合各 app 自有 proto）
 │   ├── cool-core/          #   核心框架（CRUD / sa-token / 缓存 / 密码）
-│   ├── cool-db/            #   SQLx 连接池 + 迁移
+│   ├── cool-db/            #   SQLx 连接池
 │   ├── cool-func/          #   分布式函数（Redis pub/sub）
-│   ├── cool-file/          #   文件存储驱动（local/minio/oss）
+│   ├── cool-file/          #   文件存储驱动
 │   ├── cool-micro/         #   微服务脚手架（分布式会话 / 服务鉴权）
-│   └── cool-tools/         #   CLI 脚手架
-├── modules/                # 业务模块（被 services 引用）
-│   ├── base/               #   登录 / 用户 / 角色 / 部门 / 菜单 / 日志
-│   ├── demo/               #   CRUD 示范
-│   ├── dict/               #   字典
-│   ├── space/              #   文件空间
-│   └── task/               #   定时任务
-├── services/               # 可执行服务（独立部署）
-│   ├── server/             #   单体 all-in-one（开发友好）
-│   ├── base-service/       #   base 微服务 :8001
-│   ├── dict-service/       #   dict 微服务 :8002
-│   ├── space-service/      #   space 微服务 :8003
-│   └── task-service/       #   task 微服务 :8004
-├── migrations/             # SQLx 迁移
-├── manifest/config/        # 配置（config.yaml / micro-*.yaml）
+│   └── cool-tools/         #   CLI
+├── apps/                   # 业务应用（模块 + 微服务 + proto + manifest + migrations）
+│   ├── base/               #   登录 / 用户 / 角色 / 部门 / 菜单 / 日志  :8001
+│   │   ├── proto/base/v1/  #     自有 gRPC 契约
+│   │   ├── manifest/       #     自有配置 config.yaml
+│   │   ├── migrations/     #     自有数据库迁移
+│   │   └── src/            #     lib（业务） + main（微服务入口）
+│   ├── dict/               #   字典  :8002
+│   ├── space/              #   文件空间  :8003
+│   ├── task/               #   定时任务  :8004
+│   ├── demo/               #   CRUD 示范（仅 lib）
+│   └── server/             #   单体 all-in-one
 └── docs/                   # Mintlify 文档
 ```
 
@@ -61,7 +58,7 @@ cool-admin-rust/
 
 ```mermaid
 graph TD
-    Svc[services/* 二进制] --> Modules[modules/* 业务模块]
+    Svc[apps/* 二进制] --> Modules[apps/* 业务模块]
     Svc --> Micro[cool-micro 微服务脚手架]
     Svc --> Core[cool-core]
     Modules --> Core

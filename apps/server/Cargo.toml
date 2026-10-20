@@ -1,0 +1,34 @@
+[package]
+name = "app-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "单体 all-in-one 服务"
+
+[[bin]]
+name = "cool-admin-rust"
+path = "src/main.rs"
+
+[dependencies]
+cool-proto = { workspace = true }
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-func = { workspace = true }
+cool-file = { workspace = true }
+app-base = { workspace = true }
+app-demo = { workspace = true }
+app-dict = { workspace = true }
+app-space = { workspace = true }
+app-task = { workspace = true }
+sa-token-plugin-tonic = { workspace = true }
+config = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-reflection = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+base64 = "0.22"
+serde_yaml = { workspace = true }

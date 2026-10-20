@@ -1,0 +1,30 @@
+[package]
+name = "app-demo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "demo 业务应用（模块 + 微服务）"
+
+[lib]
+name = "app_demo"
+path = "src/lib.rs"
+
+[dependencies]
+cool-proto = { workspace = true }
+cool-core = { workspace = true }
+cool-db = { workspace = true }
+cool-func = { workspace = true }
+cool-file = { workspace = true }
+
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-reflection = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+async-trait = "0.1"
+tracing = { workspace = true }
+anyhow = { workspace = true }
+bytes = { workspace = true }
+rand = "0.8"

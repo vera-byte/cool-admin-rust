@@ -101,34 +101,45 @@ flowchart LR
 ## 目录布局
 
 ```text
-crates/      # 基础库：cool-proto / cool-core / cool-db / cool-func / cool-file / cool-micro
-modules/     # 业务模块：base / demo / dict / space / task（library crate）
-services/    # 可执行服务：server（单体）+ base-service / dict-service / space-service / task-service
+apps/            # 业务应用（每个微服务自包含）
+├── base/        # proto/ + manifest/ + migrations/ + src(lib+bin)
+├── dict/        # 同上
+├── space/
+├── task/
+├── demo/        # 仅 lib（示范模块）
+└── server/      # 单体 all-in-one
+crates/          # 基础库：cool-proto / cool-core / cool-db / cool-func / cool-file / cool-micro
+proto/           # 共享契约：common.v1 / internal.v1
 ```
 
 <Note>
-  `modules/` 是 library crate（业务逻辑），`services/` 是 binary crate（进程入口），
-  `crates/` 只放可复用基础库 —— 三者职责清晰分离。
+  每个应用自带 **proto** / **manifest** / **migrations** —— 微服务完全自包含，可独立演进与部署。
+  `proto/common` 为跨服务共享契约，由 `cool-proto` 统一生成代码。
 </Note>
 
 ## 启动各服务
 
 <CodeGroup>
 ```bash base-service
-MICRO_CONFIG=manifest/config/micro-base.yaml ./target/debug/base-service
+MICRO_CONFIG=apps/base/manifest/config.yaml ./target/debug/base-service
 ```
 
 ```bash dict-service
-MICRO_CONFIG=manifest/config/micro-dict.yaml ./target/debug/dict-service
+MICRO_CONFIG=apps/dict/manifest/config.yaml ./target/debug/dict-service
 ```
 
 ```bash space-service
-MICRO_CONFIG=manifest/config/micro-space.yaml ./target/debug/space-service
+MICRO_CONFIG=apps/space/manifest/config.yaml ./target/debug/space-service
 ```
 
 ```bash task-service
-MICRO_CONFIG=manifest/config/micro-task.yaml ./target/debug/task-service
+MICRO_CONFIG=apps/task/manifest/config.yaml ./target/debug/task-service
 ```
+
+<Note>
+  不传 `MICRO_CONFIG` 时默认读取 `manifest/config/micro.yaml`；
+  各应用推荐将配置置于 `apps/<name>/manifest/config.yaml` 并通过环境变量指定。
+</Note>
 </CodeGroup>
 
 ## 配置文件

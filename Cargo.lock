@@ -95,6 +95,162 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "app-base"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "jsonwebtoken 9.3.1",
+ "md5",
+ "once_cell",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "app-demo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-proto",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "app-dict"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "once_cell",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "app-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "app-base",
+ "app-demo",
+ "app-dict",
+ "app-space",
+ "app-task",
+ "base64 0.22.1",
+ "config",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-proto",
+ "sa-token-plugin-tonic",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "app-space"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "once_cell",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "app-task"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "cool-core",
+ "cool-db",
+ "cool-file",
+ "cool-func",
+ "cool-micro",
+ "cool-proto",
+ "cron",
+ "futures-util",
+ "once_cell",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tokio-util",
+ "tonic",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,24 +888,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "base-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cool-core",
- "cool-db",
- "cool-file",
- "cool-func",
- "cool-micro",
- "cool-proto",
- "mod-base",
- "tokio",
- "tonic",
- "tonic-reflection",
- "tracing",
-]
-
-[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1326,22 +1464,6 @@ name = "deranged"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e9de72ce2ad1f90dc62fa25f0f430ef85eb4b0d8fa0be4f30373bc40a21d28e"
-
-[[package]]
-name = "dict-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cool-core",
- "cool-db",
- "cool-micro",
- "cool-proto",
- "mod-dict",
- "tokio",
- "tonic",
- "tonic-reflection",
- "tracing",
-]
 
 [[package]]
 name = "digest"
@@ -2477,97 +2599,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mod-base"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "cool-core",
- "cool-db",
- "cool-file",
- "cool-func",
- "cool-proto",
- "rand",
- "sa-token-plugin-tonic",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "tonic",
- "tracing",
-]
-
-[[package]]
-name = "mod-demo"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "cool-core",
- "cool-db",
- "cool-proto",
- "serde_json",
- "sqlx",
- "tokio",
- "tonic",
- "tracing",
-]
-
-[[package]]
-name = "mod-dict"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "cool-core",
- "cool-db",
- "cool-func",
- "cool-proto",
- "serde_json",
- "sqlx",
- "tokio",
- "tonic",
- "tracing",
-]
-
-[[package]]
-name = "mod-space"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "cool-core",
- "cool-db",
- "cool-func",
- "cool-proto",
- "serde_json",
- "sqlx",
- "tokio",
- "tonic",
- "tracing",
-]
-
-[[package]]
-name = "mod-task"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "cool-core",
- "cool-db",
- "cool-func",
- "cool-proto",
- "cron",
- "futures-util",
- "once_cell",
- "serde_json",
- "sqlx",
- "tokio",
- "tokio-util",
- "tonic",
- "tracing",
-]
-
-[[package]]
 name = "multimap"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3602,33 +3633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "config",
- "cool-core",
- "cool-db",
- "cool-file",
- "cool-func",
- "cool-proto",
- "mod-base",
- "mod-demo",
- "mod-dict",
- "mod-space",
- "mod-task",
- "prost",
- "sa-token-plugin-tonic",
- "serde",
- "serde_yaml",
- "tokio",
- "tokio-stream",
- "tonic",
- "tonic-reflection",
- "tracing",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3764,22 +3768,6 @@ checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "space-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cool-core",
- "cool-db",
- "cool-micro",
- "cool-proto",
- "mod-space",
- "tokio",
- "tonic",
- "tonic-reflection",
- "tracing",
 ]
 
 [[package]]
@@ -4080,23 +4068,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "task-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cool-core",
- "cool-db",
- "cool-func",
- "cool-micro",
- "cool-proto",
- "mod-task",
- "tokio",
- "tonic",
- "tonic-reflection",
- "tracing",
 ]
 
 [[package]]

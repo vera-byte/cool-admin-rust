@@ -1,20 +1,28 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../proto")
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
         .canonicalize()?;
 
-    let protos = [
-        proto_root.join("common/v1/common.proto"),
-        proto_root.join("internal/v1/internal.proto"),
-        proto_root.join("demo/v1/demo_sample.proto"),
-        proto_root.join("base/v1/base_open.proto"),
-        proto_root.join("base/v1/base_sys_user.proto"),
-        proto_root.join("base/v1/base_sys.proto"),
-        proto_root.join("base/v1/base_comm.proto"),
-        proto_root.join("dict/v1/dict.proto"),
-        proto_root.join("space/v1/space.proto"),
-        proto_root.join("task/v1/task.proto"),
+    let shared_root = root.join("proto");
+    let apps_root = root.join("apps");
+
+    // 收集 proto 文件（绝对路径）
+    let mut protos: Vec<std::path::PathBuf> = vec![
+        shared_root.join("common/v1/common.proto"),
+        shared_root.join("internal/v1/internal.proto"),
     ];
+    // 各应用自有 proto
+    let mut include_dirs: Vec<std::path::PathBuf> = vec![shared_root.clone()];
+
+    if let Ok(entries) = std::fs::read_dir(&apps_root) {
+        for e in entries.flatten() {
+            let proto_dir = e.path().join("proto");
+            if proto_dir.is_dir() {
+                include_dirs.push(proto_dir.clone());
+                collect_protos(&proto_dir, &mut protos);
+            }
+        }
+    }
 
     for p in &protos {
         println!("cargo:rerun-if-changed={}", p.display());
@@ -25,7 +33,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .build_client(true)
         .file_descriptor_set_path(out_dir.join("cool_admin_reflection.bin"))
-        .compile_protos(&protos, &[proto_root])?;
+        .compile_protos(&protos, &include_dirs)?;
 
     Ok(())
+}
+
+fn collect_protos(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                collect_protos(&p, out);
+            } else if p.extension().map(|x| x == "proto").unwrap_or(false) {
+                out.push(p);
+            }
+        }
+    }
 }

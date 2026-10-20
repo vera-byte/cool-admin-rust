@@ -9,18 +9,13 @@ members = [
     "crates/cool-file",
     "crates/cool-micro",
     "crates/cool-tools",
-    # 业务模块
-    "modules/base",
-    "modules/demo",
-    "modules/dict",
-    "modules/space",
-    "modules/task",
-    # 可执行服务
-    "services/server",
-    "services/base-service",
-    "services/dict-service",
-    "services/space-service",
-    "services/task-service",
+    # 业务应用（模块 + 微服务 + proto + manifest）
+    "apps/base",
+    "apps/demo",
+    "apps/dict",
+    "apps/space",
+    "apps/task",
+    "apps/server",
 ]
 
 [workspace.package]
@@ -36,11 +31,11 @@ cool-db = { path = "crates/cool-db" }
 cool-func = { path = "crates/cool-func" }
 cool-file = { path = "crates/cool-file" }
 cool-micro = { path = "crates/cool-micro" }
-mod-demo = { path = "modules/demo" }
-mod-base = { path = "modules/base" }
-mod-dict = { path = "modules/dict" }
-mod-space = { path = "modules/space" }
-mod-task = { path = "modules/task" }
+app-demo = { path = "apps/demo" }
+app-base = { path = "apps/base" }
+app-dict = { path = "apps/dict" }
+app-space = { path = "apps/space" }
+app-task = { path = "apps/task" }
 
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }
