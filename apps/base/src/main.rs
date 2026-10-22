@@ -82,6 +82,18 @@ async fn main() -> Result<()> {
         router = router.add_service(refl).add_service(refl_alpha);
     }
 
+    // APISIX 路由自动注册（按需：仅引入 cool-apisix 的服务生效）
+    if let Err(e) = cool_apisix::auto_register(
+        &cool_apisix::ApisixConfig::load(),
+        "base-service",
+        "base.v1",
+        8001,
+    )
+    .await
+    {
+        tracing::warn!("apisix route register failed: {e}");
+    }
+
     let addr = cfg.socket_addr()?;
     info!(%addr, "base-service listening");
     router.serve(addr).await?;

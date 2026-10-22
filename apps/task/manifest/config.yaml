@@ -32,3 +32,11 @@ sa_token:
 cool:
   mode: "dev"
   autoMigrate: true
+# APISIX 网关路由自动注册（按需开启）
+apisix:
+  enabled: false
+  adminUrl: "http://127.0.0.1:9180"
+  adminKey: "edd1c9f034335f136f87ad84b625c8f1"
+  upstreamHost: "127.0.0.1"
+  scheme: "grpc"
+  prefix: "cool"

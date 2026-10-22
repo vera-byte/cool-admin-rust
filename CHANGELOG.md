@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (2026-10-22)
+
+### 新增：APISIX 网关集成（cool-apisix）
+
+- **按需引入**：仅依赖 `cool-apisix` 的微服务才注册路由，未引入零副作用
+- `auto_register(service_id, package, port)`：一键注册 gRPC 路由（`/package/*`）
+- `register_routes` / `deregister_route`：批量 upsert / 删除
+- gRPC 代理：`upstream.scheme: grpc` + Ant 风格 URI 匹配
+- 配置：`apisix` 段（adminUrl/adminKey/upstreamHost/scheme/prefix）或环境变量
+- 兼容 APISIX **3.19.0**：遵守 `uri`/`uris` 二选一校验
+
+### 验收
+
+- 单测 7 项（报文构造 / URL 拼接 / mock Admin API 集成）
+- 真实 APISIX 3.19.0 注册验证：`cool-base-service` + `cool-space-service` 两条 gRPC 路由
+- 71 测试全绿、clippy 零告警
+
+---
+
 ## 0.3.0 (2026-10-21)
 
 ### 架构演进：apps/ 微服务化

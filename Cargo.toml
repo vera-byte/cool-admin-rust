@@ -8,6 +8,7 @@ members = [
     "crates/cool-func",
     "crates/cool-file",
     "crates/cool-micro",
+    "crates/cool-apisix",
     "crates/cool-tools",
     # 业务应用（模块 + 微服务 + proto + manifest）
     "apps/base",
@@ -31,6 +32,7 @@ cool-db = { path = "crates/cool-db" }
 cool-func = { path = "crates/cool-func" }
 cool-file = { path = "crates/cool-file" }
 cool-micro = { path = "crates/cool-micro" }
+cool-apisix = { path = "crates/cool-apisix" }
 app-demo = { path = "apps/demo" }
 app-base = { path = "apps/base" }
 app-dict = { path = "apps/dict" }

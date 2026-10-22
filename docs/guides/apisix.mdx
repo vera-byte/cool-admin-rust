@@ -1,0 +1,208 @@
+---
+title: "APISIX 网关集成"
+description: "微服务路由自动注册到 Apache APISIX"
+---
+
+`cool-apisix` 提供 **APISIX 网关路由自动注册** —— 微服务启动时把自己的 gRPC 路由注册到
+[Apache APISIX](https://apisix.apache.org/zh/)，网关统一对外暴露。
+
+<Note>
+  **按需引入**：只有依赖 `cool-apisix` 的微服务才会注册路由；未引入的服务不会有任何副作用。
+</Note>
+
+## 架构
+
+```mermaid
+flowchart LR
+    C[客户端] -->|gRPC-Web / HTTP| A[APISIX :9080]
+    A -->|/base.v1/*| B[base-service :8001]
+    A -->|/dict.v1/*| D[dict-service :8002]
+    A -->|/space.v1/*| S[space-service :8003]
+    A -->|/task.v1/*| T[task-service :8004]
+```
+
+## 快速开始
+
+### 1. 引入依赖
+
+```toml
+# apps/<name>/Cargo.toml
+[dependencies]
+cool-apisix = { workspace = true }
+```
+
+### 2. 启动时注册
+
+```rust
+// apps/<name>/src/main.rs
+if let Err(e) = cool_apisix::auto_register(
+    &cool_apisix::ApisixConfig::load(),
+    "base-service",     // 服务 ID（路由资源 ID 前缀）
+    "base.v1",          // proto 包名（匹配 /base.v1/*）
+    8001,               // 监听端口
+).await {
+    tracing::warn!("apisix route register failed: {e}");
+}
+```
+
+### 3. 配置
+
+`apps/<name>/manifest/config.yaml`：
+
+```yaml
+apisix:
+  enabled: true                              # 显式开启才注册
+  adminUrl: "http://127.0.0.1:9180"          # Admin API 地址
+  adminKey: "edd1c9f034335f136f87ad84b625c8f1"
+  upstreamHost: "127.0.0.1"                  # 本服务对外可达地址
+  scheme: "grpc"                             # gRPC 代理
+  prefix: "cool"                             # 路由 ID 前缀
+```
+
+或用环境变量：
+
+```bash
+export APISIX_ADMIN_URL=http://127.0.0.1:9180
+export APISIX_ADMIN_KEY=your-admin-key
+export APISIX_ENABLED=true
+```
+
+## API
+
+<AccordionGroup>
+  <Accordion title="auto_register(cfg, service_id, package, port)">
+    **推荐入口**。自动构造路由：ID = `{prefix}-{service_id}`，
+    URI = `/{package}/*`，上游 = `{upstream_host}:{port}`。
+
+    ```rust
+    cool_apisix::auto_register(&cfg, "dict-service", "dict.v1", 8002).await?;
+    ```
+  </Accordion>
+
+  <Accordion title="register_routes(cfg, routes)">
+    批量注册自定义路由（PUT 幂等 upsert）。
+
+    ```rust
+    let route = cool_apisix::ServiceRoute {
+        id: "custom-route".into(),
+        name: "自定义路由".into(),
+        uris: vec!["/my.api.v1/*".into()],
+        upstream_addr: "10.0.0.5:9000".into(),
+        scheme: "grpc".into(),
+        priority: 10,
+        labels: Default::default(),
+    };
+    cool_apisix::register_routes(&cfg, &[route]).await?;
+    ```
+  </Accordion>
+
+  <Accordion title="deregister_route(cfg, route_id)">
+    删除路由（服务下线时调用）。
+
+    ```rust
+    cool_apisix::deregister_route(&cfg, "cool-base-service").await?;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## APISIX Admin API 说明
+
+| 项目 | 值 |
+| --- | --- |
+| 默认地址 | `http://127.0.0.1:9180/apisix/admin` |
+| 认证 | `X-API-KEY: {admin_key}` |
+| 注册方式 | `PUT /apisix/admin/routes/{id}`（幂等 upsert） |
+| 路由匹配 | `uris: ["/package/*"]`（Ant 风格） |
+| gRPC 代理 | `upstream.scheme: "grpc"` |
+
+<Warning>
+  APISIX 3.19 校验：`uri` 与 `uris` **二选一**，不能同时出现。本 crate 只写 `uris`。
+</Warning>
+
+## 本地验证（APISIX 3.19.0）
+
+```bash
+# 启动 etcd + APISIX
+docker run -d --name cool-etcd --network cool-net quay.io/coreos/etcd:v3.5.13 \
+  /usr/local/bin/etcd --advertise-client-urls http://cool-etcd:2379 \
+  --listen-client-urls http://0.0.0.0:2379
+
+docker run -d --name cool-apisix --network cool-net -p 9080:9080 -p 9180:9180 \
+  -v deploy/apisix.yaml:/usr/local/apisix/conf/config.yaml \
+  swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/apache/apisix:3.19.0-debian
+
+# 注册路由
+cargo run -p cool-apisix --example register_real
+
+# 查看
+curl http://127.0.0.1:9180/apisix/admin/routes \
+  -H "X-API-KEY: edd1c9f034335f136f87ad84b625c8f1"
+```
+
+实测输出：
+
+```json
+{
+  "total": 2,
+  "list": [
+    { "id": "cool-base-service",  "uris": ["/base.v1/*"],  "upstream": {"nodes": {"127.0.0.1:8001": 1}, "scheme": "grpc"} },
+    { "id": "cool-space-service", "uris": ["/space.v1/*"], "upstream": {"nodes": {"127.0.0.1:8003": 1}, "scheme": "grpc"} }
+  ]
+}
+```
+
+## 配置文件示例
+
+`deploy/apisix.yaml`：
+
+```yaml
+apisix:
+  node_listen: 9080
+  enable_admin: true
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:
+      - "http://cool-etcd:2379"
+    prefix: "/apisix"
+  admin:
+    admin_key:
+      - name: admin
+        key: edd1c9f034335f136f87ad84b625c8f1
+        role: admin
+    allow_admin:
+      - 0.0.0.0/0
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+
+plugins:
+  - prometheus
+  - grpc-transcode
+  - grpc-web
+  - proxy-rewrite
+```
+
+## 设计要点
+
+| 特性 | 说明 |
+| --- | --- |
+| **按需引入** | 未依赖 `cool-apisix` 的服务零副作用 |
+| **幂等 upsert** | PUT 重复执行安全，服务重启自动刷新路由 |
+| **gRPC 代理** | `scheme: grpc` + `/package/*` 匹配全部 RPC |
+| **失败不阻断** | 注册失败仅告警，服务照常启动 |
+| **标签管理** | `managed-by: cool-apisix` 便于批量运维 |
+
+<Note>
+  生产环境务必更换默认 Admin Key，并限制 `allow_admin` IP 白名单。
+</Note>
+
+## 测试
+
+```bash
+cargo test -p cool-apisix
+# 7 项：路由报文构造、URL 拼接、禁用跳过、mock Admin API 集成
+```
