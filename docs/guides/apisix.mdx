@@ -119,6 +119,22 @@ export APISIX_ENABLED=true
   APISIX 3.19 校验：`uri` 与 `uris` **二选一**，不能同时出现。本 crate 只写 `uris`。
 </Warning>
 
+## Docker Compose 一键启动
+
+```bash
+docker compose up -d etcd apisix apisix-dashboard
+```
+
+| 服务 | 端口 | 说明 |
+| --- | --- | --- |
+| `cool-rust-etcd` | 2379 | APISIX 配置中心 |
+| `cool-rust-apisix` | 9080 / 9180 / 9443 | 网关 / Admin API / HTTPS |
+| `cool-rust-apisix-dashboard` | 9000 | 可视化管理 UI |
+
+Dashboard 访问：http://localhost:9000 （默认 `admin / admin`）
+
+配置文件：`deploy/apisix.yaml`、`deploy/apisix-dashboard.yaml`
+
 ## 本地验证（APISIX 3.19.0）
 
 ```bash
