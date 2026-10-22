@@ -1,0 +1,120 @@
+---
+title: "本地一键启动"
+description: "dev-up.sh 快速拉起 etcd + APISIX + 微服务并跑通测试"
+---
+
+`scripts/dev-up.sh` 一键启动本地环境并运行冒烟测试。
+
+## 快速开始
+
+```bash
+# 一键启动全部（依赖 + 服务 + 冒烟测试）
+./scripts/dev-up.sh
+
+# 仅启动（不测试）
+./scripts/dev-up.sh up
+
+# 仅跑冒烟
+./scripts/dev-up.sh smoke
+
+# 停止（保留 MySQL/Redis 数据）
+./scripts/dev-up.sh down
+```
+
+输出示例：
+
+```text
+[demo] 启动基础设施 (MySQL / Redis / etcd / APISIX)
+  ✅ MySQL 已运行
+  ✅ Redis 已运行
+  ✅ etcd 启动
+  ✅ APISIX 启动
+  ✅ APISIX Admin API 就绪
+[demo] 构建微服务
+  ✅ 构建完成
+[demo] 启动 4 个微服务（APISIX_ENABLED=1 自动注册）
+  ✅ base-service :8001 (PID=82702)
+  ✅ dict-service :8002 (PID=82703)
+  ✅ space-service :8003 (PID=82704)
+  ✅ task-service :8004 (PID=82705)
+  ✅ :8001 LISTEN
+  ✅ :8002 LISTEN
+  ✅ :8003 LISTEN
+  ✅ :8004 LISTEN
+[demo] 运行网关冒烟测试
+  ✅ 登录成功 token=d28e3b88-65ca...
+  ✅ base.v1.BaseOpenService/PersonInfo
+  ✅ base.v1.BaseSysUserService/Page
+  ✅ dict.v1.DictInfoService/Data
+  ✅ space.v1.SpaceInfoService/Page
+  ✅ task.v1.TaskInfoService/Page
+  ✅ 无 token 拦截
+
+[demo] 冒烟结果: PASS=7 FAIL=0
+  ✅ 全部通过 🎉
+```
+
+## 启动组件
+
+| 组件 | 容器 | 端口 | 说明 |
+| --- | --- | --- | --- |
+| MySQL | `cool-mysql-test` | 3306 | 业务数据库 |
+| Redis | `cool-redis` | 6379 | 分布式会话 / 缓存 |
+| etcd | `cool-rust-etcd` | 2379 | **APISIX 配置中心** |
+| APISIX | `cool-rust-apisix` | 9080 / 9180 | 网关 / Admin API |
+| 微服务 ×4 | — | 8001–8004 | base / dict / space / task |
+
+```text
+容器网络: cool-net（APISIX 经 host.docker.internal 访问宿主机微服务）
+```
+
+## 冒烟测试项
+
+| 测试 | 说明 |
+| --- | --- |
+| 登录 | admin/123456，sa-token 签发 |
+| base.PersonInfo | 鉴权访问 |
+| base.User.Page | 用户分页 |
+| dict.Data | 字典聚合 |
+| space.Page | 空间分页 |
+| task.Page | 任务分页 |
+| 无 token 拦截 | Unauthenticated |
+
+## 前置条件
+
+- Docker + Docker Compose
+- Rust 1.85+ / protoc
+- grpcurl（`go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest`）
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="APISIX 启动失败 etcd 不可达">
+    确认 etcd 容器在 `cool-net`：
+    ```bash
+    docker network connect cool-net cool-rust-etcd
+    docker restart cool-rust-apisix
+    ```
+  </Accordion>
+
+  <Accordion title="微服务转发 502/503">
+    macOS 需 `--add-host=host.docker.internal:host-gateway`（脚本已内置）。
+    Linux 可改用宿主机 IP。
+  </Accordion>
+
+  <Accordion title="端口冲突">
+    脚本默认端口 3306/6379/2379/9080/9180/8001-8004，
+    冲突时先 `./scripts/dev-up.sh down` 清理。
+  </Accordion>
+</AccordionGroup>
+
+## 相关文档
+
+<CardGroup cols={2}>
+  <Card title="APISIX 网关集成" icon="network" href="/guides/apisix">
+    Service/Route 架构与服务发现
+  </Card>
+  <Card title="微服务架构" icon="sitemap" href="/guides/microservices">
+    分布式会话与服务凭证
+  </Card>
+</CardGroup>
