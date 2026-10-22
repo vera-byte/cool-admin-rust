@@ -62,7 +62,7 @@ pub fn spawn_resource_pressure() {
                 }
                 hold.push(block);
                 // 小憩让出 CPU，模拟渐进式 OOM
-                if hold.len() % 50 == 0 {
+                if hold.len().is_multiple_of(50) {
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
             }
