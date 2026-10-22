@@ -15,6 +15,6 @@ fn main() {
             addr: "host.docker.internal:8012".into(),
         };
         cool_apisix::deregister_instance(&cfg, &inst).await.unwrap();
-        println!("slow instance :8012 deregistered (health check signal)");
+        println!("degraded instance :8012 circuit-broken (removed)");
     });
 }

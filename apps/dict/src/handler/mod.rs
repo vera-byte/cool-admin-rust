@@ -287,6 +287,11 @@ impl DictInfoRpc for DictInfoSvc {
         }))
     }
     async fn data(&self, req: Request<DictDataReq>) -> Result<Response<DictDataRes>, Status> {
+        // 混沌注入：同步阻塞模拟线程池耗尽/降级
+        let block_ms = cool_micro::chaos::block_ms_from_env();
+        if block_ms > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(block_ms));
+        }
         let r = req.into_inner();
         let map = self.svc.data(&r.types).await.map_err(biz)?;
         let mut data = std::collections::HashMap::new();

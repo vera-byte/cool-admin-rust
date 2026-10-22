@@ -34,8 +34,14 @@ pub async fn spawn_health_server(listen_port: u16) -> u16 {
             tokio::spawn(async move {
                 let mut buf = vec![0u8; 1024];
                 let _ = sock.read(&mut buf).await;
-                if delay_ms > 0 {
-                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                // 混沌：响应延迟 / 阻塞（模拟资源耗尽时健康检查超时）
+                let block_ms: u64 = std::env::var("COOL_TEST_CHAOS_BLOCK_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0);
+                let total = delay_ms.max(block_ms);
+                if total > 0 {
+                    tokio::time::sleep(Duration::from_millis(total)).await;
                 }
                 let body = r#"{"status":"ok"}"#;
                 let resp = format!(

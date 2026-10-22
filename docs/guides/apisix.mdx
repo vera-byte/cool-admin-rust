@@ -432,6 +432,64 @@ SIGCONT 恢复后: 20/20 成功        ✅
   因此**无需等待健康检查收敛即可 100% 成功**，是三类故障中兜底最彻底的场景。
 </Note>
 
+## 资源耗尽 / 降级熔断
+
+### 混沌注入手段
+
+```bash
+# CPU/内存打满（后台线程）
+COOL_TEST_CHAOS_CPU_THREADS=16 COOL_TEST_CHAOS_MEM_MB=2048 ./dict-service
+
+# 请求级阻塞（模拟线程池耗尽 / handler 卡死）
+COOL_TEST_CHAOS_BLOCK_MS=2000 ./dict-service
+```
+
+### 实测矩阵
+
+| 场景 | 现象 | 结果 |
+| --- | --- | --- |
+| **CPU/内存打满**（16 线程 + 2GB） | CPU=775%，RSS 爬升 | **30/30 成功** —— tokio I/O 服务天然抗压 |
+| **阻塞 < 读超时**（2s block，timeout=30s） | 响应变慢 | **30/30 成功** —— 降级但可用 |
+| **阻塞 > 读超时**（2s block，timeout=1s） | 响应超时 | **19/30 成功** —— 超时失败，retries 部分兜底 |
+| **健康信号熔断摘除** | 节点移除 | **20/20 成功** ✅ 零失败 |
+
+### 超时阈值 = 熔断边界
+
+```text
+handler 阻塞时长 vs timeout.read 决定熔断行为：
+
+  阻塞 < timeout  → 请求排队等待，成功（降级可用）
+  阻塞 > timeout  → 504 超时，retries 换节点
+  持续超时         → 健康端点探测超时 → 摘除节点
+```
+
+**生产建议**：`timeout.read` 设为 SLA 上限（如 1s），超过即触发熔断链路。
+
+### 健康端点同步感知
+
+健康端点与 handler 共享阻塞状态（`COOL_TEST_CHAOS_BLOCK_MS`）：
+
+```text
+:18002 → HTTP 200  14ms    ✅ healthy
+:18012 → 1017ms 超时       ❌ 降级实例可被识别
+:18022 → HTTP 200  13ms    ✅ healthy
+```
+
+### 熔断降级完整链路
+
+```text
+① handler 阻塞 > timeout        → 504 超时
+② retries: 2                    → 换节点重试（部分兜底）
+③ 健康端点超时                  → 外部健康检查识别
+④ deregister / K8s 摘除          → 流量全部走健康实例（零失败）
+```
+
+<Note>
+  APISIX 被动健康检查对 gRPC 读超时不敏感；「响应超时」型熔断依赖
+  **超时阈值 + retries + 外部健康检查**（K8s readinessProbe）组合。
+  CPU/内存打满对 I/O 密集服务影响有限，真正降级源于 **handler 阻塞**（线程池/锁竞争）。
+</Note>
+
 ## gRPC 与 gRPC-Web 双路由
 
 原生 gRPC 与浏览器 gRPC-Web **分离注册**（避免 grpc-web 插件干扰原生 HTTP/2）：

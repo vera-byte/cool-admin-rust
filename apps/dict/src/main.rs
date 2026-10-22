@@ -16,6 +16,8 @@ async fn main() -> Result<()> {
         }
     };
     cool_micro::init_tracing(&cfg.server.log_level);
+    // 混沌注入：CPU/内存压力（COOL_TEST_CHAOS_*）
+    cool_micro::spawn_resource_pressure();
     info!(service = %cfg.service.id, addr = %cfg.server.address, "starting dict-service");
 
     let pool = cool_db::connect(&cfg.db_config()).await?;

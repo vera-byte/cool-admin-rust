@@ -4,11 +4,13 @@
 //! 通过 sa-token **分布式会话**共享登录态与服务凭证。
 
 pub mod auth;
+pub mod chaos;
 pub mod delay;
 pub mod health;
 pub mod config;
 pub mod session;
 
+pub use chaos::spawn_resource_pressure;
 pub use delay::DelayLayer;
 pub use health::spawn_health_server;
 pub use auth::{ServiceAuthLayer, ServiceAuthMiddleware, SERVICE_HEADER_ID, SERVICE_HEADER_SECRET};
