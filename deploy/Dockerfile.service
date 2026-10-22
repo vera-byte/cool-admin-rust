@@ -1,0 +1,38 @@
+# 微服务通用镜像：通过 --build-arg SERVICE=base-service 选择构建目标
+#
+#   docker build -f deploy/Dockerfile.service \
+#     --build-arg SERVICE=dict-service --build-arg PACKAGE=app-dict \
+#     -t cool/dict-service:0.1.0 .
+
+ARG SERVICE=dict-service
+ARG PACKAGE=app-dict
+
+# ---- build ----
+ARG BUILD_IMAGE=rust:1.85-bookworm
+FROM ${BUILD_IMAGE} AS builder
+ARG SERVICE
+ARG PACKAGE
+WORKDIR /src
+RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
+# 先拷贝依赖清单以利用构建缓存
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+COPY apps ./apps
+COPY proto ./proto
+RUN cargo build --release -p ${PACKAGE}
+
+# ---- runtime ----
+ARG RUNTIME_IMAGE=debian:bookworm-slim
+FROM ${RUNTIME_IMAGE}
+ARG SERVICE
+ARG PACKAGE
+RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /src/target/release/${SERVICE} /app/${SERVICE}
+# 应用配置目录（运行时挂载覆盖）
+COPY apps/${SERVICE%-service}/manifest/config.yaml /app/manifest/config.yaml
+ENV MICRO_CONFIG=/app/manifest/config.yaml
+EXPOSE 8001
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+  CMD bash -c 'echo > /dev/tcp/127.0.0.1/8001' || exit 1
+ENTRYPOINT ["/app/${SERVICE}"]

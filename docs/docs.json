@@ -44,7 +44,7 @@
       },
       {
         "group": "指南",
-        "pages": ["guides/microservices", "guides/microservice-tutorial", "guides/apisix", "guides/migrations", "guides/local-dev", "guides/deployment", "guides/cli", "guides/testing", "guides/frontend"]
+        "pages": ["guides/microservices", "guides/microservice-tutorial", "guides/apisix", "guides/migrations", "guides/local-dev", "guides/docker-ci", "guides/deployment", "guides/cli", "guides/testing", "guides/frontend"]
       }
     ]
   },

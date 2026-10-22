@@ -1,0 +1,118 @@
+---
+title: "Docker 镜像与 CI 流水线"
+description: "镜像打包、GitHub Actions 流水线与测试环境部署"
+---
+
+## 镜像打包
+
+### 通用服务镜像
+
+`deploy/Dockerfile.service` 通过 build-arg 构建任意微服务：
+
+```bash
+docker build -f deploy/Dockerfile.service \
+  --build-arg SERVICE=dict-service \
+  --build-arg PACKAGE=app-dict \
+  -t cool/dict-service:0.1.0 .
+```
+
+| 参数 | 说明 | 示例 |
+| --- | --- | --- |
+| `SERVICE` | 二进制名 | `base-service` / `dict-service` |
+| `PACKAGE` | crate 名 | `app-base` / `app-dict` |
+| `BUILD_IMAGE` | 构建镜像（可换国内源） | `rust:1.85-bookworm` |
+| `RUNTIME_IMAGE` | 运行时镜像 | `debian:bookworm-slim` |
+
+### 批量构建脚本
+
+```bash
+./scripts/build-images.sh 0.1.0
+./scripts/build-images.sh 0.1.0 registry.example.com/cool   # 推送指定仓库
+
+# 国内网络受限时覆盖基础镜像
+BUILD_IMAGE=swr.cn-north-4.myhuaweicloud.com/.../rust:1.85-bookworm \
+RUNTIME_IMAGE=swr.cn-north-4.myhuaweicloud.com/.../debian:bookworm-slim \
+  ./scripts/build-images.sh 0.1.0
+```
+
+产物镜像：
+
+```text
+cool/base-service:0.1.0    cool/dict-service:0.1.0
+cool/space-service:0.1.0   cool/task-service:0.1.0
+```
+
+## CI 流水线（GitHub Actions）
+
+`.github/workflows/ci.yml`：
+
+```mermaid
+flowchart LR
+    A[Push / PR] --> B[test]
+    B --> C[build 镜像矩阵]
+    C --> D[推送 GHCR]
+    D --> E[deploy-staging]
+```
+
+| Job | 触发 | 内容 |
+| --- | --- | --- |
+| **test** | push / PR | fmt · clippy · cargo test（MySQL+Redis services） |
+| **build** | push | 4 服务镜像矩阵，推送 `ghcr.io/<owner>/*` |
+| **deploy-staging** | master / tag `v*` | 部署测试环境（占位，按实际环境补充） |
+
+镜像标签：
+
+```text
+ghcr.io/<owner>/dict-service:<git-sha>
+ghcr.io/<owner>/dict-service:latest
+```
+
+## 测试环境部署
+
+`docker-compose.test.yml` 从镜像仓库拉取全套：
+
+```bash
+IMAGE_TAG=0.1.0 REGISTRY=ghcr.io/vera-byte \
+  docker compose -f docker-compose.test.yml up -d
+```
+
+| 服务 | 端口 | 说明 |
+| --- | --- | --- |
+| mysql / redis / etcd / apisix | 3306 / 6379 / 2379 / 9080+9180 | 基础设施 |
+| base / dict / space / task | 8001–8004 | 微服务（自动注册 APISIX） |
+
+```text
+微服务启动时 APISIX_ENABLED=1 自动注册 Service + 路由
+APISIX_UPSTREAM_HOST=host.docker.internal（容器访问宿主机）
+```
+
+## 环境变量（微服务容器）
+
+| 变量 | 说明 |
+| --- | --- |
+| `MICRO_CONFIG` | 配置文件路径 |
+| `APISIX_ENABLED` | `1` 启用网关注册 |
+| `APISIX_ADMIN_URL` | Admin API 地址 |
+| `APISIX_ADMIN_KEY` | Admin Key |
+| `APISIX_UPSTREAM_HOST` | 上游可达地址 |
+
+## 发布流程
+
+```bash
+# 1. 本地验证
+./scripts/dev-up.sh
+
+# 2. 打 tag 触发 CI
+git tag v0.1.0 && git push origin v0.1.0
+
+# 3. CI 自动：test → build 镜像 → push GHCR → deploy-staging
+
+# 4. 测试环境验证
+IMAGE_TAG=v0.1.0 REGISTRY=ghcr.io/vera-byte \
+  docker compose -f docker-compose.test.yml up -d
+```
+
+<Note>
+  本地网络受限无法拉取 `rust:1.85-bookworm` 时，用 `BUILD_IMAGE` /
+  `RUNTIME_IMAGE` 覆盖为国内镜像源。CI（GitHub Actions）无此限制。
+</Note>

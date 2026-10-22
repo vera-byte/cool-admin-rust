@@ -1,0 +1,105 @@
+# 测试环境编排：从镜像仓库拉取微服务镜像
+# 用法:
+#   IMAGE_TAG=0.1.0 REGISTRY=ghcr.io/vera-byte docker compose -f docker-compose.test.yml up -d
+services:
+  mysql:
+    image: mysql:8
+    container_name: test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: cooltest
+    ports: ["3306:3306"]
+    volumes:
+      - test_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    container_name: test-redis
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.13
+    container_name: test-etcd
+    environment:
+      ETCD_ADVERTISE_CLIENT_URLS: "http://test-etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    ports: ["2379:2379"]
+
+  apisix:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/apache/apisix:3.19.0-debian
+    container_name: test-apisix
+    depends_on:
+      etcd: { condition: service_started }
+    volumes:
+      - ./deploy/apisix.yaml:/usr/local/apisix/conf/config.yaml
+    ports: ["9080:9080", "9180:9180"]
+
+  # ---- 微服务（从镜像仓库拉取）----
+  base-service:
+    image: ${REGISTRY:-ghcr.io/vera-byte}/base-service:${IMAGE_TAG:-latest}
+    container_name: test-base
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      MICRO_CONFIG: /app/manifest/config.yaml
+      APISIX_ENABLED: "1"
+      APISIX_ADMIN_URL: "http://test-apisix:9180/apisix/admin"
+      APISIX_ADMIN_KEY: "edd1c9f034335f136f87ad84b625c8f1"
+      APISIX_UPSTREAM_HOST: "host.docker.internal"
+    ports: ["8001:8001"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  dict-service:
+    image: ${REGISTRY:-ghcr.io/vera-byte}/dict-service:${IMAGE_TAG:-latest}
+    container_name: test-dict
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      MICRO_CONFIG: /app/manifest/config.yaml
+      APISIX_ENABLED: "1"
+      APISIX_ADMIN_URL: "http://test-apisix:9180/apisix/admin"
+      APISIX_ADMIN_KEY: "edd1c9f034335f136f87ad84b625c8f1"
+      APISIX_UPSTREAM_HOST: "host.docker.internal"
+    ports: ["8002:8002"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  space-service:
+    image: ${REGISTRY:-ghcr.io/vera-byte}/space-service:${IMAGE_TAG:-latest}
+    container_name: test-space
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      MICRO_CONFIG: /app/manifest/config.yaml
+      APISIX_ENABLED: "1"
+      APISIX_ADMIN_URL: "http://test-apisix:9180/apisix/admin"
+      APISIX_ADMIN_KEY: "edd1c9f034335f136f87ad84b625c8f1"
+      APISIX_UPSTREAM_HOST: "host.docker.internal"
+    ports: ["8003:8003"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  task-service:
+    image: ${REGISTRY:-ghcr.io/vera-byte}/task-service:${IMAGE_TAG:-latest}
+    container_name: test-task
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      MICRO_CONFIG: /app/manifest/config.yaml
+      APISIX_ENABLED: "1"
+      APISIX_ADMIN_URL: "http://test-apisix:9180/apisix/admin"
+      APISIX_ADMIN_KEY: "edd1c9f034335f136f87ad84b625c8f1"
+      APISIX_UPSTREAM_HOST: "host.docker.internal"
+    ports: ["8004:8004"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+volumes:
+  test_mysql_data:

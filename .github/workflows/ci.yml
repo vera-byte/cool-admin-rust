@@ -1,0 +1,116 @@
+# CI 流水线：测试 → 构建镜像 → 推送镜像 → 部署测试环境
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+    tags: ["v*"]
+  pull_request:
+    branches: [master, main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  # ---------- 1. 测试 ----------
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: "123456"
+          MYSQL_DATABASE: cooltest
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -p123456"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Test
+        env:
+          COOL_TEST_DATABASE_URL: mysql://root:123456@127.0.0.1:3306/cooltest
+        run: cargo test --workspace
+
+  # ---------- 2. 构建镜像 ----------
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        service:
+          - { name: base-service, package: app-base }
+          - { name: dict-service, package: app-dict }
+          - { name: space-service, package: app-space }
+          - { name: task-service, package: app-task }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.service
+          push: true
+          build-args: |
+            SERVICE=${{ matrix.service.name }}
+            PACKAGE=${{ matrix.service.package }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------- 3. 部署测试环境（仅 master/tag） ----------
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          echo "部署到测试环境..."
+          echo "镜像: ${{ env.IMAGE_PREFIX }}/*:${{ github.sha }}"
+          # TODO: 替换为实际部署命令
+          # kubectl apply -f deploy/k8s/
+          # 或 docker stack deploy / ansible ...
+          echo "✅ 部署占位（按实际环境补充）"
