@@ -191,14 +191,14 @@ impl MicroService {
         Self::grpc_discovery(id, package, ServiceDiscovery::Static { nodes })
     }
 
-    /// 原生 gRPC 路由 ID
-    pub fn route_id(&self, prefix: &str) -> String {
-        format!("{prefix}-{}", self.id)
+    /// 原生 gRPC 路由 ID（与 Service id 对应，避免重复前缀）
+    pub fn route_id(&self, _prefix: &str) -> String {
+        self.id.clone()
     }
 
     /// gRPC-Web 路由 ID
-    pub fn web_route_id(&self, prefix: &str) -> String {
-        format!("{prefix}-{}-web", self.id)
+    pub fn web_route_id(&self, _prefix: &str) -> String {
+        format!("{}-web", self.id)
     }
 
     /// 原生 gRPC 路由 URI
@@ -371,7 +371,7 @@ pub async fn bind_route(cfg: &ApisixConfig, svc: &MicroService) -> Result<()> {
     }
     let client = client()?;
     let route_id = svc.route_id(&cfg.prefix);
-    let body = route_body(
+    let mut body = route_body(
         &route_id,
         &format!("{} gRPC", svc.name),
         &[svc.route_uri()],
@@ -384,6 +384,8 @@ pub async fn bind_route(cfg: &ApisixConfig, svc: &MicroService) -> Result<()> {
             ("protocol", "grpc"),
         ],
     );
+    // 与 Service 保持一致的 proxy-rewrite（scheme）
+    body["plugins"] = json!({ "proxy-rewrite": { "scheme": svc.scheme } });
     put_json(&client, cfg, &route_url(cfg, &route_id), &body).await?;
     tracing::info!(target: "apisix", route_id = %route_id, service_id = %svc.id, "gRPC route bound");
     Ok(())
@@ -622,8 +624,8 @@ mod tests {
     #[test]
     fn microservice_routes() {
         let svc = MicroService::grpc_dns("dict-service", "dict.v1", "dict-service.local");
-        assert_eq!(svc.route_id("cool"), "cool-dict-service");
-        assert_eq!(svc.web_route_id("cool"), "cool-dict-service-web");
+        assert_eq!(svc.route_id("cool"), "dict-service");
+        assert_eq!(svc.web_route_id("cool"), "dict-service-web");
         assert_eq!(svc.route_uri(), "/dict.v1.*");
         assert_eq!(svc.web_route_uri(), "/web/dict.v1.*");
     }
