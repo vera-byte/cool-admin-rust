@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cool-config
+  namespace: cool-admin
+data:
+  # 各微服务共享配置片段（环境变量覆盖优先）
+  REDIS_ADDRESS: "redis:6379"
+  DATABASE_HOST: "mysql"
+  APISIX_ADMIN_URL: "http://apisix:9180/apisix/admin"
+  APISIX_UPSTREAM_HOST: ""   # 留空=自动用 Pod IP（K8s 服务发现）

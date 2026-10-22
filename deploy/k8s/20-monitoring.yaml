@@ -1,0 +1,122 @@
+# 监控组件：Prometheus + AlertManager
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: cool-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: prometheus }
+  template:
+    metadata:
+      labels: { app: prometheus }
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.53.0
+          ports:
+            - containerPort: 9090
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yaml"
+            - "--storage.tsdb.path=/prometheus"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: cool-admin
+spec:
+  selector: { app: prometheus }
+  ports:
+    - port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: cool-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: alertmanager }
+  template:
+    metadata:
+      labels: { app: alertmanager }
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          ports:
+            - containerPort: 9093
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: cool-admin
+spec:
+  selector: { app: alertmanager }
+  ports:
+    - port: 9093
+      targetPort: 9093
+---
+# Prometheus 配置 ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: cool-admin
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - /etc/prometheus/alerts.yaml
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
+    scrape_configs:
+      - job_name: "cool-microservices"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["cool-admin"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+      - job_name: "apisix"
+        static_configs:
+          - targets: ["apisix:9091"]
+        metrics_path: /apisix/prometheus/metrics
+  alerts.yaml: |
+    # 见 deploy/monitoring/alerts.yaml
+    groups:
+      - name: cool-microservices
+        rules:
+          - alert: ServiceDown
+            expr: up{job="cool-microservices"} == 0
+            for: 1m
+            labels: { severity: critical }
+            annotations:
+              summary: "微服务 {{ $labels.instance }} 不可达"

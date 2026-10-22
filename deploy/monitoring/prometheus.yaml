@@ -1,0 +1,41 @@
+# Prometheus 抓取配置（K8s / Docker Compose 均可用）
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yaml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # 微服务（K8s 注解自动发现）
+  - job_name: "cool-microservices"
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ["cool-admin"]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: $1:${1}
+
+  # APISIX 网关
+  - job_name: "apisix"
+    static_configs:
+      - targets: ["apisix:9091"]
+    metrics_path: /apisix/prometheus/metrics
+
+  # APISIX 网关（docker compose）
+  - job_name: "apisix-docker"
+    static_configs:
+      - targets: ["host.docker.internal:9091"]
+    metrics_path: /apisix/prometheus/metrics

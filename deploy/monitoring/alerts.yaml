@@ -1,0 +1,111 @@
+# cool-admin-rust 告警规则
+groups:
+  - name: cool-microservices
+    rules:
+      # ---- 可用性 ----
+      - alert: ServiceDown
+        expr: up{job="cool-microservices"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "微服务 {{ $labels.instance }} 不可达"
+          description: "实例 {{ $labels.instance }} 已 1 分钟无指标上报"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(grpc_server_handled_total{grpc_code!="OK"}[5m])) by (service)
+          / sum(rate(grpc_server_handled_total[5m])) by (service) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} 错误率 > 5%"
+          description: "5 分钟错误率 {{ $value | humanizePercentage }}"
+
+      # ---- 延迟 ----
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(grpc_server_handling_seconds_bucket[5m])) by (le, service)) > 1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} P95 延迟 > 1s"
+          description: "P95 = {{ $value | humanizeDuration }}"
+
+      - alert: SlowLatencyCritical
+        expr: |
+          histogram_quantile(0.99, sum(rate(grpc_server_handling_seconds_bucket[5m])) by (le, service)) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} P99 延迟 > 5s"
+          description: "P99 = {{ $value | humanizeDuration }}"
+
+      # ---- 资源 ----
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="cool-microservices"} / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} 内存 > 400MB"
+          description: "RSS = {{ $value | humanize }}MB"
+
+      - alert: PodRestarting
+        expr: |
+          increase(kube_pod_container_status_restarts_total{namespace="cool-admin"}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.pod }} 15 分钟内重启 > 3 次"
+
+  - name: cool-gateway
+    rules:
+      - alert: ApisixDown
+        expr: up{job="apisix"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "APISIX 网关不可达"
+
+      - alert: ApisixHighErrorRate
+        expr: |
+          sum(rate(apisix_http_status_total{status=~"5.."}[5m]))
+          / sum(rate(apisix_http_status_total[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "APISIX 5xx 错误率 > 10%"
+
+  - name: cool-infrastructure
+    rules:
+      - alert: MysqlDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL 不可达"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 不可达"
+
+      - alert: EtcdDown
+        expr: etcd_server_has_leader == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "etcd 无 leader"

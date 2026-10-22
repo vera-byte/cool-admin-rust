@@ -1,0 +1,93 @@
+# base-service 微服务（K8s Deployment + Service）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: base-service
+  namespace: cool-admin
+  labels:
+    app: base-service
+    app.kubernetes.io/name: base-service
+    app.kubernetes.io/part-of: cool-admin-rust
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: base-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: base-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+    spec:
+      containers:
+        - name: base-service
+          image: ghcr.io/vera-byte/base-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 8001
+            - name: health
+              containerPort: 18001
+          env:
+            - name: MICRO_CONFIG
+              value: /app/manifest/config.yaml
+            - name: APISIX_ENABLED
+              value: "1"
+            - name: APISIX_ADMIN_URL
+              valueFrom:
+                configMapKeyRef: { name: cool-config, key: APISIX_ADMIN_URL }
+            - name: APISIX_ADMIN_KEY
+              valueFrom:
+                secretKeyRef: { name: cool-secret, key: APISIX_ADMIN_KEY }
+            - name: SERVICE_SECRET
+              valueFrom:
+                secretKeyRef: { name: cool-secret, key: SERVICE_SECRET_BASE }
+            - name: MICRO_DATABASE__DEFAULT__HOST
+              valueFrom:
+                configMapKeyRef: { name: cool-config, key: DATABASE_HOST }
+            - name: MICRO_DATABASE__DEFAULT__PASS
+              valueFrom:
+                secretKeyRef: { name: cool-secret, key: DATABASE_PASS }
+            - name: MICRO_REDIS__ADDRESS
+              valueFrom:
+                configMapKeyRef: { name: cool-config, key: REDIS_ADDRESS }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: health }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          livenessProbe:
+            tcpSocket: { port: grpc }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: base-service
+  namespace: cool-admin
+  labels:
+    app: base-service
+spec:
+  selector:
+    app: base-service
+  ports:
+    - name: grpc
+      port: 8001
+      targetPort: grpc
+    - name: health
+      port: 18001
+      targetPort: health

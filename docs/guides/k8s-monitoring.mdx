@@ -1,0 +1,147 @@
+---
+title: "Kubernetes 部署与监控告警"
+description: "K8s manifests、Prometheus 告警规则与测试环境部署"
+---
+
+## Kubernetes 部署
+
+### 目录结构
+
+```text
+deploy/k8s/
+├── 00-namespace.yaml       # cool-admin 命名空间
+├── 01-configmap.yaml       # 共享配置（DB/Redis/APISIX）
+├── 02-secret.yaml          # 密钥（密码/JWT/服务凭证）
+├── 10-base-service.yaml    # base 微服务 Deployment + Service
+├── 10-dict-service.yaml    # dict
+├── 10-space-service.yaml   # space
+├── 10-task-service.yaml    # task
+└── 20-monitoring.yaml      # Prometheus + AlertManager
+```
+
+### 一键部署
+
+```bash
+kubectl apply -f deploy/k8s/00-namespace.yaml
+kubectl apply -f deploy/k8s/01-configmap.yaml
+kubectl apply -f deploy/k8s/02-secret.yaml
+kubectl apply -f deploy/k8s/10-*.yaml
+kubectl apply -f deploy/k8s/20-monitoring.yaml
+
+# 验证
+kubectl -n cool-admin get pods
+kubectl -n cool-admin get svc
+```
+
+### 关键配置
+
+| 特性 | 配置 |
+| --- | --- |
+| **零停机滚动** | `maxUnavailable: 0` + `readinessProbe` |
+| **就绪探针** | HTTP `/health`（grpc+10000）—— 慢实例自动摘除 |
+| **存活探针** | TCP gRPC 端口 —— 进程崩溃自动重启 |
+| **资源限制** | requests 100m/128Mi，limits 1/512Mi |
+| **密钥注入** | `secretKeyRef`（数据库密码/JWT/服务凭证） |
+| **Prometheus 注解** | `prometheus.io/scrape: "true"` |
+
+### 就绪/存活探针详解
+
+```yaml
+readinessProbe:            # 不就绪 → 从 Endpoints 摘除（不接收流量）
+  httpGet: { path: /health, port: health }
+  timeoutSeconds: 2
+  failureThreshold: 2      # 2 次失败即摘除（≈10s）
+
+livenessProbe:             # 失败 → 重启容器
+  tcpSocket: { port: grpc }
+  failureThreshold: 3
+```
+
+<Note>
+  就绪探针检测**响应超时/慢实例**（健康端点延迟感知），
+  存活探针检测**进程崩溃**。两者互补，实现自动故障转移。
+</Note>
+
+## 监控告警
+
+### 组件
+
+| 组件 | 端口 | 说明 |
+| --- | --- | --- |
+| Prometheus | 9090 | 指标采集 + 告警评估 |
+| AlertManager | 9093 | 告警路由/通知 |
+| APISIX | 9091 | 网关指标（`/apisix/prometheus/metrics`） |
+
+### 告警规则（`deploy/monitoring/alerts.yaml`）
+
+| 告警 | 条件 | 级别 |
+| --- | --- | --- |
+| `ServiceDown` | 实例 1 分钟无指标 | critical |
+| `HighErrorRate` | 错误率 > 5%（5min） | warning |
+| `HighLatency` | P95 > 1s | warning |
+| `SlowLatencyCritical` | P99 > 5s | critical |
+| `HighMemoryUsage` | RSS > 400MB | warning |
+| `PodRestarting` | 15 分钟重启 > 3 次 | warning |
+| `ApisixDown` / `ApisixHighErrorRate` | 网关不可达 / 5xx > 10% | critical |
+| `MysqlDown` / `RedisDown` / `EtcdDown` | 基础设施不可达 | critical |
+
+### AlertManager 通知
+
+`deploy/monitoring/alertmanager.yaml` 支持：
+
+- **Webhook**（钉钉/飞书/Slack 转发）
+- **Email**（SMTP）
+- 分级路由：critical 立即通知，warning 汇总
+
+```yaml
+route:
+  routes:
+    - match: { severity: critical }
+      receiver: critical
+    - match: { severity: warning }
+      receiver: warning
+```
+
+### 部署监控
+
+```bash
+kubectl apply -f deploy/k8s/20-monitoring.yaml
+kubectl -n cool-admin port-forward svc/prometheus 9090:9090
+# 打开 http://localhost:9090/alerts 查看告警
+```
+
+## 部署流程（测试环境）
+
+```bash
+# 1. 构建推送镜像
+./scripts/build-images.sh 0.1.0 ghcr.io/vera-byte
+
+# 2. 部署 K8s
+kubectl apply -f deploy/k8s/
+
+# 3. 验证
+kubectl -n cool-admin rollout status deploy/dict-service
+kubectl -n cool-admin get pods
+
+# 4. 监控
+kubectl -n cool-admin port-forward svc/prometheus 9090:9090
+```
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="就绪探针失败导致 Pod 不就绪">
+    检查健康端点：`kubectl -n cool-admin exec <pod> -- curl localhost:18002/health`
+    确认 `COOL_TEST_CHAOS_*` 未开启（混沌注入会延迟健康端点）。
+  </Accordion>
+
+  <Accordion title="APISIX 注册失败">
+    确认 `APISIX_ADMIN_URL` 可达，且 `APISIX_UPSTREAM_HOST` 为 K8s Service DNS
+    （如 `dict-service.cool-admin.svc.cluster.local`）。
+  </Accordion>
+
+  <Accordion title="告警未触发">
+    检查 Prometheus targets：`kubectl -n cool-admin port-forward svc/prometheus 9090:9090`
+    → Status → Targets。确认 Pod 注解 `prometheus.io/scrape: "true"`。
+  </Accordion>
+</AccordionGroup>
