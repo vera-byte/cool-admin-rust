@@ -202,6 +202,58 @@ plugins:
   - proxy-rewrite
 ```
 
+## 多实例自动发现
+
+同一服务启动多个实例时，APISIX **自动合并上游节点**，无需手工配置负载均衡：
+
+```mermaid
+flowchart LR
+    C[客户端] --> A[APISIX :9080]
+    A --> B1[base :8001]
+    A --> B2[base :8011]
+    A --> B3[base :8021]
+```
+
+```bash
+# 实例 1
+MICRO_CONFIG=apps/base/manifest/config.yaml ./target/debug/base-service  # :8001
+# 实例 2（不同端口）
+MICRO_CONFIG=apps/base/manifest/config.yaml   MICRO_SERVER__ADDRESS=0.0.0.0:8011 ./target/debug/base-service
+# 实例 3
+MICRO_CONFIG=apps/base/manifest/config.yaml   MICRO_SERVER__ADDRESS=0.0.0.0:8021 ./target/debug/base-service
+```
+
+**节点管理**：
+
+| 操作 | 行为 |
+| --- | --- |
+| 实例启动 | GET 现有节点 → 合并自己 → PUT（幂等） |
+| 实例下线 | 摘除自己的节点；若已无实例则删除路由 |
+
+```rust
+// 多实例注册（推荐）
+let inst = cool_apisix::ServiceInstance {
+    service_id: "base-service".into(),
+    package: "base.v1".into(),
+    addr: "host.docker.internal:8001".into(),
+};
+cool_apisix::register_instance(&cfg, &inst).await?;
+
+// 实例下线时摘除
+cool_apisix::deregister_instance(&cfg, &inst).await?;
+```
+
+实测（3 实例注册后摘除 1 个）：
+
+```json
+{
+  "nodes": {
+    "host.docker.internal:8021": 1,
+    "host.docker.internal:8001": 1
+  }
+}
+```
+
 ## gRPC 与 gRPC-Web 双路由
 
 原生 gRPC 与浏览器 gRPC-Web **分离注册**（避免 grpc-web 插件干扰原生 HTTP/2）：
@@ -232,6 +284,7 @@ curl -X POST http://localhost:9080/web/base.v1.BaseOpenService/Captcha \
 | **失败不阻断** | 注册失败仅告警，服务照常启动 |
 | **标签管理** | `managed-by: cool-apisix` 便于批量运维 |
 | **双协议路由** | 原生 gRPC + gRPC-Web 分离，`/web/` 前缀 + 路径重写 |
+| **多实例自动发现** | 节点合并/摘除，APISIX roundrobin 天然负载均衡 |
 
 <Note>
   生产环境务必更换默认 Admin Key，并限制 `allow_admin` IP 白名单。

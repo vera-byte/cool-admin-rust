@@ -19,4 +19,8 @@ pub mod config;
 pub mod register;
 
 pub use config::{ApisixConfig, ApisixSection};
-pub use register::{deregister_route, register_routes, register_routes_web, auto_register, auto_register_web, ServiceRoute};
+pub use register::{
+    auto_register, auto_register_web, deregister_instance, deregister_instance_web,
+    deregister_route, register_instance, register_instance_web, register_routes,
+    register_routes_web, ServiceInstance, ServiceRoute,
+};

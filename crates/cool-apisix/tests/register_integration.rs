@@ -53,8 +53,12 @@ async fn register_routes_upserts_to_admin_api() {
         .expect("register ok");
 
     let log = captured.lock().await;
-    assert_eq!(log.len(), 1);
-    let (req_line, body) = &log[0];
+    // 多实例注册：GET（查现有节点）→ PUT（合并更新）
+    let put = log
+        .iter()
+        .find(|(l, _)| l.contains("PUT"))
+        .expect("should have PUT");
+    let (req_line, body) = put;
     assert!(req_line.contains("PUT"), "should PUT, got {req_line}");
     assert!(req_line.contains("/routes/base-service"), "path: {req_line}");
     assert!(body.contains("\"name\""), "body: {body}");
@@ -83,7 +87,11 @@ async fn auto_register_uses_prefix_and_package() {
         .expect("register ok");
 
     let log = captured.lock().await;
-    let (req_line, body) = &log[0];
+    let put = log
+        .iter()
+        .find(|(l, _)| l.contains("PUT"))
+        .expect("should have PUT");
+    let (req_line, body) = put;
     assert!(req_line.contains("/routes/prod-dict-service"), "path: {req_line}");
     assert!(body.contains("/dict.v1.*"), "uris: {body}");
     assert!(body.contains("10.0.0.5:8002"), "upstream: {body}");
