@@ -35,7 +35,7 @@ impl ServiceRoute {
         Self {
             id: service_id.to_string(),
             name: format!("{service_id} routes"),
-            uris: vec![format!("/{package}/*")],
+            uris: vec![format!("/{package}.*")],
             upstream_addr: addr.to_string(),
             scheme: "grpc".into(),
             priority: 10,
@@ -157,6 +157,79 @@ pub async fn deregister_route(cfg: &ApisixConfig, route_id: &str) -> Result<()> 
     }
 }
 
+/// 为微服务注册 gRPC-Web 路由（浏览器接入，/web/ 前缀 + grpc-web 插件）。
+///
+/// 与原生 gRPC 路由分离，避免 grpc-web 插件干扰原生 HTTP/2 流量。
+pub async fn auto_register_web(
+    cfg: &ApisixConfig,
+    service_id: &str,
+    package: &str,
+    port: u16,
+) -> Result<()> {
+    let addr = format!("{}:{}", cfg.upstream_host, port);
+    let route = ServiceRoute {
+        id: format!("{}-{}-web", cfg.prefix, service_id),
+        name: format!("{service_id} gRPC-Web ({package})"),
+        uris: vec![format!("/web/{package}.*")],
+        upstream_addr: addr,
+        scheme: cfg.scheme.clone(),
+        priority: 20,
+        labels: {
+            let mut m = HashMap::new();
+            m.insert("managed-by".into(), "cool-apisix".into());
+            m.insert("service".into(), service_id.to_string());
+            m.insert("package".into(), package.to_string());
+            m.insert("protocol".into(), "grpc-web".into());
+            m
+        },
+    };
+    // gRPC-Web 路由追加 grpc-web 插件
+    register_routes_web(cfg, std::slice::from_ref(&route)).await
+}
+
+/// gRPC-Web 路由注册（含 grpc-web 插件）
+pub async fn register_routes_web(cfg: &ApisixConfig, routes: &[ServiceRoute]) -> Result<()> {
+    if !cfg.enabled {
+        return Ok(());
+    }
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    for route in routes {
+        upsert_route_web(&client, cfg, route).await?;
+    }
+    Ok(())
+}
+
+async fn upsert_route_web(client: &Client, cfg: &ApisixConfig, route: &ServiceRoute) -> Result<()> {
+    let url = cfg.route_url(&route.id);
+    let mut body = route_body(route);
+    body["plugins"] = json!({
+        "proxy-rewrite": {
+            "scheme": route.scheme,
+            // 剥离 /web/ 前缀，转发到微服务原生路径
+            "regex_uri": ["/web/(.*)", "/$1"]
+        },
+        "grpc-web": {}
+    });
+    let resp = client
+        .put(&url)
+        .header("X-API-KEY", &cfg.admin_key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .context("连接 APISIX 失败")?;
+    let status = resp.status();
+    if status.is_success() {
+        tracing::info!(target: "apisix", route_id = %route.id, "web route registered");
+        Ok(())
+    } else {
+        let text = resp.text().await.unwrap_or_default();
+        bail!("注册 gRPC-Web 路由 {} 失败: HTTP {} {}", route.id, status, text)
+    }
+}
+
 /// 为微服务自动注册路由（推荐入口）。
 ///
 /// `package` 为 proto 包名（如 `base.v1`），自动匹配 `/{package}/*` 全部方法。
@@ -166,7 +239,7 @@ pub async fn auto_register(cfg: &ApisixConfig, service_id: &str, package: &str, 
     let route = ServiceRoute {
         id: format!("{}-{}", cfg.prefix, service_id),
         name: format!("{service_id} ({package})"),
-        uris: vec![format!("/{package}/*")],
+        uris: vec![format!("/{package}.*")],
         upstream_addr: addr,
         scheme: cfg.scheme.clone(),
         priority: 10,
@@ -189,7 +262,7 @@ mod tests {
     fn grpc_route_shapes() {
         let r = ServiceRoute::grpc("base-service", "base.v1", "127.0.0.1:8001");
         assert_eq!(r.id, "base-service");
-        assert_eq!(r.uris, vec!["/base.v1/*"]);
+        assert_eq!(r.uris, vec!["/base.v1.*"]);
         assert_eq!(r.scheme, "grpc");
         assert_eq!(r.upstream_addr, "127.0.0.1:8001");
     }
@@ -199,7 +272,7 @@ mod tests {
         let r = ServiceRoute::grpc("dict-service", "dict.v1", "10.0.0.2:8002");
         let body = route_body(&r);
         assert_eq!(body["name"], "dict-service routes");
-        assert_eq!(body["uris"][0], "/dict.v1/*");
+        assert_eq!(body["uris"][0], "/dict.v1.*");
         assert_eq!(body["upstream"]["scheme"], "grpc");
         assert_eq!(body["upstream"]["nodes"]["10.0.0.2:8002"], 1);
         assert_eq!(body["labels"]["managed-by"], "cool-apisix");

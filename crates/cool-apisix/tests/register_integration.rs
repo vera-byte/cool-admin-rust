@@ -85,7 +85,7 @@ async fn auto_register_uses_prefix_and_package() {
     let log = captured.lock().await;
     let (req_line, body) = &log[0];
     assert!(req_line.contains("/routes/prod-dict-service"), "path: {req_line}");
-    assert!(body.contains("/dict.v1/*"), "uris: {body}");
+    assert!(body.contains("/dict.v1.*"), "uris: {body}");
     assert!(body.contains("10.0.0.5:8002"), "upstream: {body}");
 }
 

@@ -202,6 +202,26 @@ plugins:
   - proxy-rewrite
 ```
 
+## gRPC 与 gRPC-Web 双路由
+
+原生 gRPC 与浏览器 gRPC-Web **分离注册**（避免 grpc-web 插件干扰原生 HTTP/2）：
+
+| 协议 | URI 模式 | 插件 | 用途 |
+| --- | --- | --- | --- |
+| 原生 gRPC | `/base.v1.*` | proxy-rewrite | grpcurl / 服务间调用 |
+| gRPC-Web | `/web/base.v1.*` | proxy-rewrite + grpc-web | 浏览器前端 |
+
+gRPC-Web 路由通过 `regex_uri: ["/web/(.*)", "/$1"]` 剥离前缀后转发。
+
+```bash
+# 原生 gRPC
+grpcurl -plaintext localhost:9080 base.v1.BaseOpenService/Captcha
+
+# gRPC-Web（浏览器）
+curl -X POST http://localhost:9080/web/base.v1.BaseOpenService/Captcha \
+  -H "Content-Type: application/grpc-web+proto" -H "X-Grpc-Web: 1"
+```
+
 ## 设计要点
 
 | 特性 | 说明 |
@@ -211,6 +231,7 @@ plugins:
 | **gRPC 代理** | `scheme: grpc` + `/package/*` 匹配全部 RPC |
 | **失败不阻断** | 注册失败仅告警，服务照常启动 |
 | **标签管理** | `managed-by: cool-apisix` 便于批量运维 |
+| **双协议路由** | 原生 gRPC + gRPC-Web 分离，`/web/` 前缀 + 路径重写 |
 
 <Note>
   生产环境务必更换默认 Admin Key，并限制 `allow_admin` IP 白名单。
