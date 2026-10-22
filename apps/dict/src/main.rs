@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
     let (svc_a, svc_b) = app_dict::build_services(pool.clone());
 
     let mut router = Server::builder()
+        .layer(cool_core::LoggingLayer)
         .layer(cool_micro::ServiceAuthLayer::new(
             cfg.sa_token.enable,
             session.state.clone(),
