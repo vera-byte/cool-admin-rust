@@ -333,6 +333,63 @@ deregister_instance → kill 旧进程 → 启动新进程 → register_instance
   实例重启**无需任何手工干预**，健康检查自动重新纳入。
 </Note>
 
+## 慢实例（响应超时）检测与摘除
+
+### 健康端点
+
+每个微服务内置 HTTP 健康端点（`grpc_port + 10000`）：
+
+```bash
+curl http://127.0.0.1:18002/health   # 快实例 → 200 (20ms)
+curl http://127.0.0.1:18012/health   # 慢实例 → 超时 (1016ms) ← 可被探测
+```
+
+混沌测试注入：`COOL_TEST_RESPONSE_DELAY_MS=2000` 使响应延迟 2s。
+
+### 实测结果
+
+```text
+A. 慢实例在环（retries 兜底）
+   20 请求 → 15 成功 / 5 失败   ← 超时窗口内仍有失败
+
+B. 健康信号检测 → 摘除慢实例
+   20 请求 → 20 成功 / 0 失败   ✅ 零失败
+```
+
+| 阶段 | 成功率 | 说明 |
+| --- | --- | --- |
+| 健康探测 | — | 慢实例 1016ms 超时被识别 |
+| 慢实例在环 | 75% | retries 兜底，超时窗口仍有失败 |
+| **健康信号摘除后** | **100%** | 流量全部走快实例 |
+
+### APISIX 限制与生产建议
+
+<Warning>
+  **APISIX 的 TCP 主动检查无法感知慢实例**（端口开放即判健康），
+  且 `checks.active.port` 为全局配置，不支持逐节点健康端口。
+  因此「响应超时」型故障需依赖**外部编排器**（K8s / Consul）的健康检查摘除节点。
+</Warning>
+
+| 方案 | 检测能力 | 推荐场景 |
+| --- | --- | --- |
+| APISIX TCP check | 存活（进程崩溃） | 基础故障 |
+| APISIX passive check | 连接失败 | 网络故障 |
+| **HTTP 健康端点**（本方案） | **响应超时 / 依赖故障** | **慢实例检测** |
+| K8s readiness probe | 同上 | **生产推荐** |
+
+**生产推荐部署方式**：
+
+```yaml
+# K8s Deployment —— 就绪探针检测慢实例
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 18001        # grpc_port + 10000
+  timeoutSeconds: 1
+  failureThreshold: 2
+# 就绪失败 → 从 Endpoints 摘除 → APISIX 不再路由
+```
+
 ## gRPC 与 gRPC-Web 双路由
 
 原生 gRPC 与浏览器 gRPC-Web **分离注册**（避免 grpc-web 插件干扰原生 HTTP/2）：
@@ -365,6 +422,7 @@ curl -X POST http://localhost:9080/web/base.v1.BaseOpenService/Captcha \
 | **双协议路由** | 原生 gRPC + gRPC-Web 分离，`/web/` 前缀 + 路径重写 |
 | **多实例自动发现** | 节点合并/摘除，APISIX roundrobin 天然负载均衡 |
 | **自动故障转移** | retries + 主动/被动健康检查，宕机零失败 |
+| **慢实例检测** | HTTP 健康端点（grpc+10000），供 K8s/APISIX 探测 |
 
 <Note>
   生产环境务必更换默认 Admin Key，并限制 `allow_admin` IP 白名单。

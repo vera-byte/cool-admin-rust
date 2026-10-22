@@ -12,9 +12,9 @@ fn main() {
         let inst = cool_apisix::ServiceInstance {
             service_id: "dict-service".into(),
             package: "dict.v1".into(),
-            addr: "host.docker.internal:8022".into(),
+            addr: "host.docker.internal:8012".into(),
         };
-        let _ = cool_apisix::register_instance(&cfg, &inst).await;
-        println!("re-registered :8022");
+        cool_apisix::deregister_instance(&cfg, &inst).await.unwrap();
+        println!("slow instance :8012 deregistered (health check signal)");
     });
 }

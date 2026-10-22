@@ -24,9 +24,15 @@ async fn main() -> Result<()> {
     }
     let session = cool_micro::init_distributed(&cfg).await?;
 
+    // HTTP 健康端点（APISIX 主动检查用，端口 = gRPC 端口 + 10000）
+    let grpc_port = cfg.socket_addr()?.port();
+    cool_micro::spawn_health_server(grpc_port + 10000).await;
+
     let (svc_a, svc_b) = app_dict::build_services(pool.clone());
 
+    // 测试用延迟注入（COOL_TEST_RESPONSE_DELAY_MS）
     let mut router = Server::builder()
+        .layer(cool_micro::DelayLayer::from_env().unwrap_or_default())
         .layer(cool_core::LoggingLayer)
         .layer(cool_micro::ServiceAuthLayer::new(
             cfg.sa_token.enable,
