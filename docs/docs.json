@@ -44,7 +44,7 @@
       },
       {
         "group": "指南",
-        "pages": ["guides/microservices", "guides/migrations", "guides/deployment", "guides/cli", "guides/testing", "guides/frontend"]
+        "pages": ["guides/microservices", "guides/microservice-tutorial", "guides/migrations", "guides/deployment", "guides/cli", "guides/testing", "guides/frontend"]
       }
     ]
   },

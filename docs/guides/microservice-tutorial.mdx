@@ -1,0 +1,455 @@
+---
+title: "微服务开发到部署"
+description: "从 cool-tools 创建应用到生产部署的完整实战教程"
+---
+
+本教程以一个 **`order`（订单）** 微服务为例，走完从创建到部署的全流程。
+
+```mermaid
+flowchart LR
+    A[cool-tools app] --> B[定义 proto]
+    B --> C[实现 Model/Service/Handler]
+    C --> D[配置 manifest]
+    D --> E[编写迁移]
+    E --> F[本地联调]
+    F --> G[Docker 构建]
+    G --> H[部署上线]
+```
+
+<Note>
+  前置条件：Rust 1.85+、protoc、MySQL、Redis（分布式会话必需）、grpcurl。
+</Note>
+
+## 第 1 步：创建应用骨架
+
+```bash
+cool-tools app order
+```
+
+生成自包含应用：
+
+```text
+apps/order/
+├── proto/order/v1/order.proto   # gRPC 契约
+├── manifest/config.yaml         # 应用配置
+├── migrations/9001_order.sql    # 数据库迁移
+├── src/
+│   ├── lib.rs                   # 业务入口 + migrate()
+│   ├── main.rs                  # 微服务入口
+│   ├── model/ · service/ · handler/
+└── tests/
+```
+
+<Note>
+  workspace 用 `apps/*` 通配成员、`cool-proto` 自动聚合 `apps/*/proto`，无需手动登记。
+</Note>
+
+## 第 2 步：定义 proto 契约
+
+编辑 `apps/order/proto/order/v1/order.proto`，按业务补充字段：
+
+```protobuf
+syntax = "proto3";
+package order.v1;
+import "common/v1/common.proto";
+
+service OrderService {
+  rpc Add(OrderAddReq) returns (OrderAddRes);
+  rpc Delete(common.v1.IdsReq) returns (OrderDeleteRes);
+  rpc Update(OrderUpdateReq) returns (OrderUpdateRes);
+  rpc Info(common.v1.IdReq) returns (OrderInfoRes);
+  rpc List(OrderListReq) returns (OrderListRes);
+  rpc Page(OrderPageReq) returns (OrderPageRes);
+}
+
+message Order {
+  int64 id = 1;
+  string name = 2;
+  string status = 3;      // pending / paid / shipped
+  int64 amount = 4;       // 金额（分）
+  int64 create_time = 5;
+  int64 update_time = 6;
+}
+
+message OrderAddReq {
+  string name = 1;
+  string status = 2;
+  int64 amount = 3;
+}
+// ...其余消息按需扩展
+```
+
+<Warning>
+  决策 D1：响应体使用 **typed data**（每 RPC 自带 `code/message/data`），不用 `google.protobuf.Any`。
+</Warning>
+
+## 第 3 步：实现 Model
+
+`apps/order/src/model/order.rs` — 声明表与列白名单：
+
+```rust
+use cool_core::model::{ColumnMeta, Model};
+
+pub struct Order;
+
+const COLS: &[ColumnMeta] = &[
+    ColumnMeta::read("id"),
+    ColumnMeta::rw("name"),
+    ColumnMeta::rw("status"),
+    ColumnMeta::rw("amount"),
+    ColumnMeta::computed("createTime"),
+    ColumnMeta::computed("updateTime"),
+    ColumnMeta::computed("deleteTime"),
+];
+
+impl Model for Order {
+    fn table_name() -> &'static str { "order" }
+    fn columns() -> &'static [ColumnMeta] { COLS }
+}
+```
+
+<Note>
+  `rw` 可读写、`read` 只读、`computed` 系统字段。列白名单防 SQL 注入 ——
+  非法字段在 `Add/Update` 时直接拒绝。
+</Note>
+
+## 第 4 步：实现 Service
+
+`apps/order/src/service/mod.rs` — 配置校验规则与查询行为：
+
+```rust
+use cool_core::query::QueryOp;
+use cool_core::repo::{CrudConfig, CrudRepo};
+use cool_core::CrudService;
+
+pub struct OrderService {
+    repo: CrudRepo<Order>,
+}
+
+pub fn new_order_service(pool: MySqlPool) -> OrderService {
+    let config = CrudConfig {
+        unique_key: {
+            let mut m = HashMap::new();
+            m.insert("name".into(), "订单名已存在".into());
+            m
+        },
+        not_null_key: {
+            let mut m = HashMap::new();
+            m.insert("name".into(), "订单名不能为空".into());
+            m
+        },
+        list_query_op: QueryOp {
+            field_eq: vec!["status".into()],
+            key_word_field: vec!["name".into()],
+            ..Default::default()
+        },
+        page_query_op: QueryOp {
+            field_eq: vec!["status".into()],
+            key_word_field: vec!["name".into()],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    OrderService { repo: CrudRepo::<Order>::new(pool, config) }
+}
+
+#[async_trait::async_trait]
+impl CrudService for OrderService {
+    type Model = Order;
+    fn repo(&self) -> &CrudRepo<Self::Model> { &self.repo }
+
+    // 业务钩子：下单后记录日志 / 触发下游
+    async fn modify_after(&self, method: &str, data: &FieldMap) -> CoolResult<()> {
+        if method == "Add" {
+            tracing::info!(?data, "order created");
+        }
+        Ok(())
+    }
+}
+```
+
+开箱即用能力：软删除、唯一键、非空键、排序白名单、分页、模糊搜索。
+
+## 第 5 步：实现 Handler
+
+`apps/order/src/handler/mod.rs` — proto ↔ FieldMap 映射：
+
+```rust
+#[tonic::async_trait]
+impl order_service_server::OrderService for OrderSvc {
+    async fn add(&self, req: Request<OrderAddReq>) -> Result<Response<OrderAddRes>, Status> {
+        let r = req.into_inner();
+        let mut d = FieldMap::new();
+        d.insert("name".into(), json!(r.name));
+        d.insert("status".into(), json!(r.status));
+        d.insert("amount".into(), json!(r.amount));
+
+        let row = self.svc.service_add(d).await.map_err(biz_err)?;
+        let (code, message) = ok_code();
+        Ok(Response::new(OrderAddRes {
+            code,
+            message,
+            data: Some(to_proto(&row)),
+        }))
+    }
+    // Delete / Update / Info / List / Page 同理
+}
+```
+
+## 第 6 步：配置 manifest
+
+`apps/order/manifest/config.yaml`：
+
+```yaml
+service:
+  id: "order-service"           # 服务凭证 ID
+  name: "order"
+  secret: "micro-secret-order-001"   # 服务间调用密钥
+
+server:
+  address: "0.0.0.0:8005"       # 独立端口
+
+database:
+  default:
+    type: "mysql"
+    host: "127.0.0.1"
+    port: 3306
+    user: "root"
+    pass: "123456"
+    name: "cooltest"
+
+redis:
+  address: "127.0.0.1:6379"     # 分布式会话依赖
+
+sa_token:
+  timeout: 3600
+  key_prefix: "sa:"             # 多服务必须一致
+  enable: true
+
+cool:
+  autoMigrate: true
+```
+
+## 第 7 步：编写迁移
+
+`apps/order/migrations/9001_order.sql`：
+
+```sql
+CREATE TABLE IF NOT EXISTS `order` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL DEFAULT '',
+  `status` VARCHAR(50) NOT NULL DEFAULT 'pending',
+  `amount` BIGINT NOT NULL DEFAULT 0,
+  `createTime` DATETIME(3) NOT NULL,
+  `updateTime` DATETIME(3) NOT NULL,
+  `deleteTime` DATETIME(3) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_deleteTime` (`deleteTime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+<Warning>
+  版本号全局唯一：自定义应用用 **90xx** 段。只用幂等语句
+  （`IF NOT EXISTS` / `WHERE NOT EXISTS`），确保平滑升级。
+  详见 [数据库迁移](/guides/migrations)。
+</Warning>
+
+## 第 8 步：本地联调
+
+```bash
+# 构建
+cargo build -p app-order
+
+# 启动
+MICRO_CONFIG=apps/order/manifest/config.yaml ./target/debug/order-service
+# 日志: migrations done module="order"
+#       order-service listening addr=0.0.0.0:8005
+```
+
+<Steps>
+  <Step title="登录获取 token">
+    ```bash
+    # 先启动 base-service :8001
+    grpcurl -plaintext -d '{}' localhost:8001 base.v1.BaseOpenService/Captcha
+    grpcurl -plaintext \
+      -d '{"username":"admin","password":"123456","captchaId":"<cid>","verifyCode":"<code>"}' \
+      localhost:8001 base.v1.BaseOpenService/Login
+    ```
+  </Step>
+
+  <Step title="调用 order 服务">
+    ```bash
+    H='authorization: Bearer <token>'
+
+    # 新增订单
+    grpcurl -plaintext -H "$H" \
+      -d '{"name":"SO-001","status":"pending","amount":9900}' \
+      localhost:8005 order.v1.OrderService/Add
+
+    # 分页查询
+    grpcurl -plaintext -H "$H" \
+      -d '{"page":1,"size":10,"status":"pending"}' \
+      localhost:8005 order.v1.OrderService/Page
+    ```
+  </Step>
+
+  <Step title="验证跨服务会话">
+    同一 token 可直接访问 dict/space/task/order —— sa-token 分布式会话生效。
+  </Step>
+</Steps>
+
+<Tip>
+  调试技巧：`grpcurl -plaintext localhost:8005 list` 列出服务；
+  `grpcurl -plaintext localhost:8005 describe order.v1.OrderService` 查看方法签名。
+</Tip>
+
+## 第 9 步：Docker 构建
+
+编辑 `deploy/Dockerfile`，复用多阶段构建：
+
+```dockerfile
+FROM rust:1.85-bookworm AS builder
+WORKDIR /src
+RUN apt-get update && apt-get install -y protobuf-compiler
+COPY . .
+RUN cargo build --release -p app-order
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=builder /src/target/release/order-service /app/order-service
+COPY apps/order/manifest/config.yaml /app/manifest/config.yaml
+COPY apps/order/migrations /app/migrations
+EXPOSE 8005
+ENTRYPOINT ["/app/order-service"]
+```
+
+```bash
+docker build -f deploy/Dockerfile -t order-service:0.1.0 .
+```
+
+## 第 10 步：部署
+
+### 方式 A：Docker Compose（推荐）
+
+在 `docker-compose.yml` 追加：
+
+```yaml
+  order:
+    image: order-service:0.1.0
+    container_name: order-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      MICRO_SERVICE__SECRET: "micro-secret-order-001"
+      MICRO_DATABASE__DEFAULT__HOST: "mysql"
+      MICRO_REDIS__ADDRESS: "redis:6379"
+    ports:
+      - "8005:8005"
+```
+
+```bash
+docker compose up -d order
+```
+
+### 方式 B：独立进程（systemd）
+
+```ini
+# /etc/systemd/system/order-service.service
+[Unit]
+Description=Order Service
+After=network.target mysql.service redis.service
+
+[Service]
+ExecStart=/app/order-service
+Environment=MICRO_CONFIG=/app/manifest/config.yaml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now order-service
+```
+
+### 方式 C：Kubernetes
+
+将容器部署为 Deployment + Service，配置注入通过 ConfigMap / Secret：
+
+```yaml
+env:
+  - name: MICRO_SERVICE__SECRET
+    valueFrom: { secretKeyRef: { name: order-secret, key: secret } }
+  - name: MICRO_REDIS__ADDRESS
+    value: "redis:6379"
+```
+
+## 部署后验证
+
+```bash
+# 健康检查（若有 internal.v1）
+grpcurl -plaintext localhost:8005 order.v1.OrderService/List
+
+# 服务凭证调用（无需用户 token）
+grpcurl -plaintext \
+  -H "x-service-id: task-service" \
+  -H "x-service-secret: micro-secret-task-001" \
+  -d '{}' localhost:8005 order.v1.OrderService/List
+```
+
+## 检查清单
+
+<CardGroup cols={2}>
+  <Card title="开发完成" icon="code">
+    - proto 契约定义完成
+    - Model 列白名单正确
+    - Service 校验规则配置
+    - Handler 六个 CRUD RPC 实现
+    - 迁移文件幂等
+  </Card>
+  <Card title="部署就绪" icon="rocket">
+    - manifest 密钥已更换（勿用默认 secret）
+    - Redis 可达（分布式会话）
+    - 端口未冲突
+    - 服务凭证已配置
+    - 日志 / 监控接入
+  </Card>
+</CardGroup>
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="启动报 migration partially applied">
+    迁移中途失败导致。按 sqlx 提示清理该行后重启：
+    `DELETE FROM _sqlx_migrations WHERE version = 9001;`
+  </Accordion>
+
+  <Accordion title="调用报 Unauthenticated">
+    确认 token 有效且带 `authorization: Bearer`；微服务模式下 Redis 必须可达。
+  </Accordion>
+
+  <Accordion title="跨服务调用报 服务凭证无效">
+    检查 `x-service-id` / `x-service-secret` 与目标服务 `manifest` 中的
+    `service.id` / `service.secret` 一致。
+  </Accordion>
+
+  <Accordion title="如何只生成库不要微服务入口">
+    删除 `src/main.rs` 与 `Cargo.toml` 的 `[[bin]]` 段，作为纯 lib 使用
+    （参考 `apps/demo`）。
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="微服务架构" icon="sitemap" href="/guides/microservices">
+    分布式会话与服务凭证详解
+  </Card>
+  <Card title="数据库迁移" icon="database" href="/guides/migrations">
+    版本号分段与平滑升级
+  </Card>
+</CardGroup>
