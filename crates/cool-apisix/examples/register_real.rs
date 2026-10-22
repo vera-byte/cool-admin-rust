@@ -9,20 +9,14 @@ fn main() {
             scheme: "grpc".into(),
             prefix: "cool".into(),
         };
-        // 摘除死节点 8021
-        let dead = cool_apisix::ServiceInstance {
-            service_id: "base-service".into(),
-            package: "base.v1".into(),
-            addr: "host.docker.internal:8021".into(),
-        };
-        cool_apisix::deregister_instance(&cfg, &dead).await.unwrap();
-        // 确保 8001 在
-        let alive = cool_apisix::ServiceInstance {
-            service_id: "base-service".into(),
-            package: "base.v1".into(),
-            addr: "host.docker.internal:8001".into(),
-        };
-        cool_apisix::register_instance(&cfg, &alive).await.unwrap();
-        println!("base route fixed");
+        for port in [8002u16, 8012, 8022] {
+            let inst = cool_apisix::ServiceInstance {
+                service_id: "dict-service".into(),
+                package: "dict.v1".into(),
+                addr: format!("host.docker.internal:{port}"),
+            };
+            cool_apisix::register_instance(&cfg, &inst).await.unwrap();
+        }
+        println!("3 instances registered (with health check)");
     });
 }

@@ -83,7 +83,21 @@ fn upstream_json(scheme: &str, nodes: &Map<String, Value>) -> Value {
         "type": "roundrobin",
         "scheme": scheme,
         "nodes": Value::Object(nodes.clone()),
-        "timeout": { "connect": 5, "send": 30, "read": 30 }
+        "timeout": { "connect": 5, "send": 30, "read": 30 },
+        // 自动故障转移：失败重试 + 被动健康检查（APISIX checks 格式）
+        "retries": 2,
+        "checks": {
+            "active": {
+                "type": "tcp",
+                "timeout": 3,
+                "healthy": { "interval": 2, "successes": 1 },
+                "unhealthy": { "interval": 1, "failures": 2 }
+            },
+            "passive": {
+                "healthy": { "successes": 3 },
+                "unhealthy": { "http_failures": 2, "tcp_failures": 2 }
+            }
+        }
     })
 }
 
