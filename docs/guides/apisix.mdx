@@ -39,7 +39,23 @@ graph TB
     D --> I3[实例 :8022]
 ```
 
-### 服务发现类型
+### 部署形态（当前）
+
+| 组件 | 说明 |
+| --- | --- |
+| **配置中心** | **etcd**（APISIX `config_provider: etcd`） |
+| **上游** | 静态节点（`nodes`） |
+| **Service/Route** | 每微服务一个 Service，路由绑定 `service_id` |
+
+```bash
+# 启动依赖
+docker compose up -d etcd apisix apisix-dashboard
+
+# 注册微服务（静态上游）
+APISIX_ENABLED=1 APISIX_ADMIN_URL=http://127.0.0.1:9180 ./target/debug/dict-service
+```
+
+### 服务发现类型（代码就绪，需对应 registry）
 
 | 类型 | discovery_type | service_name 示例 |
 | --- | --- | --- |
@@ -48,7 +64,15 @@ graph TB
 | **Nacos** | `nacos` | `dict-service` |
 | **ConsulKV** | `consul_kv` | `dict-service` |
 | **Eureka** | `eureka` | `dict-service` |
-| 静态节点 | — | 显式 `nodes`（兼容模式） |
+| 静态节点 | — | 显式 `nodes`（**当前部署形态**） |
+
+<Note>
+  **当前部署**：etcd 配置中心 + 静态节点上游，Service/Route 转发已验证（10/10）。
+  Nacos / DNS / K8s / ConsulKV / Eureka 的 `discovery_type` 字段与配置生成**已实现**，
+  启用需部署对应 registry 并在 `deploy/apisix.yaml` 的 `discovery:` 段配置。
+  实测 Nacos 发现链路注意：容器需同网络 + `host.docker.internal` 映射（macOS）；
+  临时实例（ephemeral=true）需心跳保活，否则实例过期。
+</Note>
 
 ### 用法
 

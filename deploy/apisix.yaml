@@ -22,6 +22,17 @@ deployment:
       ip: 0.0.0.0
       port: 9180
 
+# 服务发现配置
+discovery:
+  nacos:
+    host:
+      - "http://cool-nacos:8848"
+    prefix: "/nacos/v1"
+    fetch_interval: 30    # 拉取实例间隔（秒）
+    service_name: "DEFAULT_GROUP@@"
+    group_name: "DEFAULT_GROUP"
+    namespace_id: ""
+
 plugins:
   - prometheus
   - grpc-transcode
@@ -29,3 +40,7 @@ plugins:
   - proxy-rewrite
   - limit-count
   - cors
+
+plugin_attr:
+  prometheus:
+    export_uri: /apisix/prometheus/metrics
