@@ -9,14 +9,12 @@ fn main() {
             scheme: "grpc".into(),
             prefix: "cool".into(),
         };
-        for port in [8002u16, 8012, 8022] {
-            let inst = cool_apisix::ServiceInstance {
-                service_id: "dict-service".into(),
-                package: "dict.v1".into(),
-                addr: format!("host.docker.internal:{port}"),
-            };
-            cool_apisix::register_instance(&cfg, &inst).await.unwrap();
-        }
-        println!("3 instances registered (with health check)");
+        let inst = cool_apisix::ServiceInstance {
+            service_id: "dict-service".into(),
+            package: "dict.v1".into(),
+            addr: "host.docker.internal:8022".into(),
+        };
+        let _ = cool_apisix::register_instance(&cfg, &inst).await;
+        println!("re-registered :8022");
     });
 }
