@@ -29,6 +29,7 @@ pub mod register;
 
 pub use config::{ApisixConfig, ApisixSection};
 pub use register::{
+    build_discovery_service, build_static_service,
     auto_register, auto_register_web, bind_route, bind_route_web, deregister_instance,
     deregister_instance_web, deregister_microservice, deregister_route, deregister_service,
     register_instance, register_instance_web, register_microservice, register_routes,

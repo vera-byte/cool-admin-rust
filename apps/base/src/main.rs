@@ -84,15 +84,12 @@ async fn main() -> Result<()> {
     }
 
     // APISIX 路由自动注册（按需：仅引入 cool-apisix 的服务生效）
-    if let Err(e) = cool_apisix::auto_register(
-        &cool_apisix::ApisixConfig::load(),
-        "base-service",
-        "base.v1",
-        8001,
-    )
-    .await
-    {
-        tracing::warn!("apisix route register failed: {e}");
+    if std::env::var("APISIX_ENABLED").map(|v| v != "0").unwrap_or(false) {
+        let apisix_cfg = cool_apisix::ApisixConfig::load();
+        let svc = cool_apisix::build_static_service(&apisix_cfg, "base-service", "base.v1", 8001);
+        if let Err(e) = cool_apisix::register_microservice(&apisix_cfg, &svc).await {
+            tracing::warn!("apisix register failed: {e}");
+        }
     }
 
     let addr = cfg.socket_addr()?;

@@ -18,6 +18,7 @@ cool-proto = { workspace = true }
 cool-core = { workspace = true }
 cool-db = { workspace = true }
 cool-micro = { workspace = true }
+cool-apisix = { workspace = true }
 cool-func = { workspace = true }
 cool-file = { workspace = true }
 

@@ -47,6 +47,16 @@ async fn main() -> Result<()> {
         router = router.add_service(refl);
     }
 
+
+    // APISIX 路由自动注册（按需：仅引入 cool-apisix 的服务生效）
+    if std::env::var("APISIX_ENABLED").map(|v| v != "0").unwrap_or(false) {
+        let apisix_cfg = cool_apisix::ApisixConfig::load();
+        let svc = cool_apisix::build_static_service(&apisix_cfg, "task-service", "task.v1", 8004);
+        if let Err(e) = cool_apisix::register_microservice(&apisix_cfg, &svc).await {
+            tracing::warn!("apisix register failed: {e}");
+        }
+    }
+
     let addr = cfg.socket_addr()?;
     info!(%addr, "task-service listening");
     router.serve(addr).await?;

@@ -663,3 +663,41 @@ mod tests {
         assert_eq!(body["uris"][0], "/dict.v1.*");
     }
 }
+
+/// 便捷注册：从 ApisixConfig 构建 MicroService 并注册（静态节点模式）。
+///
+/// `service_id` 为逻辑名（如 "dict-service"），实际 APISIX Service id = `{prefix}-{service_id}`。
+pub fn build_static_service(
+    cfg: &ApisixConfig,
+    service_id: &str,
+    package: &str,
+    port: u16,
+) -> MicroService {
+    let mut nodes = BTreeMap::new();
+    nodes.insert(format!("{}:{}", cfg.upstream_host, port), 1u32);
+    MicroService {
+        id: format!("{}-{}", cfg.prefix, service_id),
+        name: format!("{service_id} ({package})"),
+        package: package.to_string(),
+        scheme: "grpc".into(),
+        discovery: ServiceDiscovery::Static { nodes },
+        priority: 10,
+    }
+}
+
+/// 便捷注册：服务发现模式
+pub fn build_discovery_service(
+    cfg: &ApisixConfig,
+    service_id: &str,
+    package: &str,
+    discovery: ServiceDiscovery,
+) -> MicroService {
+    MicroService {
+        id: format!("{}-{}", cfg.prefix, service_id),
+        name: format!("{service_id} ({package})"),
+        package: package.to_string(),
+        scheme: "grpc".into(),
+        discovery,
+        priority: 10,
+    }
+}
