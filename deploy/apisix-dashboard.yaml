@@ -1,0 +1,23 @@
+conf:
+  listen:
+    host: 0.0.0.0
+    port: 9000
+  etcd:
+    endpoints:
+      - "http://cool-rust-etcd:2379"
+    prefix: "/apisix"
+    username: ""
+    password: ""
+
+authentication:
+  secret: "cool-admin-rust-dashboard-secret"
+  expire_time: 3600
+  users:
+    - username: admin
+      password: admin
+    - username: viewer
+      password: viewer
+
+apisix:
+  base_url: "http://cool-rust-apisix:9180/apisix/admin"
+  admin_key: "edd1c9f034335f136f87ad84b625c8f1"

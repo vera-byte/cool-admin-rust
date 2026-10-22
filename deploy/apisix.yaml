@@ -8,7 +8,7 @@ deployment:
     config_provider: etcd
   etcd:
     host:
-      - "http://cool-etcd:2379"
+      - "http://cool-rust-etcd:2379"
     prefix: "/apisix"
     timeout: 30
   admin:
