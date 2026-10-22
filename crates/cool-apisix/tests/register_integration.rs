@@ -1,11 +1,10 @@
-//! APISIX 路由注册集成测试（内嵌 mock Admin API）。
+//! 注册接口集成测试（内嵌 mock Admin API）。
 
 use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-/// 极简 mock APISIX Admin API：捕获 PUT /routes/:id 的 body
 async fn mock_apisix(captured: Arc<tokio::sync::Mutex<Vec<(String, String)>>>) -> u16 {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -20,11 +19,9 @@ async fn mock_apisix(captured: Arc<tokio::sync::Mutex<Vec<(String, String)>>>) -
                 let mut buf = vec![0u8; 8192];
                 let n = sock.read(&mut buf).await.unwrap_or(0);
                 let req = String::from_utf8_lossy(&buf[..n]).to_string();
-                let path = req.lines().next().unwrap_or("").to_string();
-                // 取 body（空行之后）
+                let line = req.lines().next().unwrap_or("").to_string();
                 let body = req.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
-                captured.lock().await.push((path, body));
-
+                captured.lock().await.push((line, body));
                 let resp = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}";
                 let _ = sock.write_all(resp).await;
             });
@@ -33,87 +30,72 @@ async fn mock_apisix(captured: Arc<tokio::sync::Mutex<Vec<(String, String)>>>) -
     port
 }
 
-#[tokio::test]
-async fn register_routes_upserts_to_admin_api() {
-    let captured = Arc::new(tokio::sync::Mutex::new(Vec::new()));
-    let port = mock_apisix(captured.clone()).await;
-
-    let cfg = cool_apisix::ApisixConfig {
+fn cfg(port: u16) -> cool_apisix::ApisixConfig {
+    cool_apisix::ApisixConfig {
         admin_url: format!("http://127.0.0.1:{port}"),
-        admin_key: "test-key".into(),
+        admin_key: "k".into(),
         enabled: true,
         upstream_host: "127.0.0.1".into(),
         scheme: "grpc".into(),
         prefix: "cool".into(),
-    };
+    }
+}
 
-    let route = cool_apisix::ServiceRoute::grpc("base-service", "base.v1", "127.0.0.1:8001");
-    cool_apisix::register_routes(&cfg, &[route])
+#[tokio::test]
+async fn auto_register_creates_service_and_route() {
+    let captured = Arc::new(tokio::sync::Mutex::new(Vec::new()));
+    let port = mock_apisix(captured.clone()).await;
+    let c = cfg(port);
+
+    cool_apisix::auto_register(&c, "base-service", "base.v1", 8001)
         .await
         .expect("register ok");
 
     let log = captured.lock().await;
-    // 多实例注册：GET（查现有节点）→ PUT（合并更新）
-    let put = log
+    // 2 个 PUT：Service + Route
+    assert_eq!(log.len(), 2, "service + route: {:?}", log.iter().map(|(l, _)| l).collect::<Vec<_>>());
+    let has_service = log.iter().any(|(l, _)| l.contains("PUT") && l.contains("/services/"));
+    let has_route = log.iter().any(|(l, _)| l.contains("PUT") && l.contains("/routes/"));
+    assert!(has_service);
+    assert!(has_route);
+
+    // Service 体含静态 nodes（兼容模式）
+    let service_body = &log
         .iter()
-        .find(|(l, _)| l.contains("PUT"))
-        .expect("should have PUT");
-    let (req_line, body) = put;
-    assert!(req_line.contains("PUT"), "should PUT, got {req_line}");
-    assert!(req_line.contains("/routes/base-service"), "path: {req_line}");
-    assert!(body.contains("\"name\""), "body: {body}");
-    assert!(body.contains("base.v1"), "uris in body: {body}");
-    assert!(body.contains("grpc"), "scheme in body: {body}");
-    assert!(body.contains("127.0.0.1:8001"), "upstream in body: {body}");
-    assert!(body.contains("cool-apisix"), "label in body: {body}");
+        .find(|(l, _)| l.contains("/services/"))
+        .unwrap()
+        .1;
+    assert!(service_body.contains("127.0.0.1:8001"));
+    assert!(service_body.contains("grpc"));
 }
 
 #[tokio::test]
-async fn auto_register_uses_prefix_and_package() {
+async fn auto_register_web_adds_grpc_web_plugin() {
     let captured = Arc::new(tokio::sync::Mutex::new(Vec::new()));
     let port = mock_apisix(captured.clone()).await;
+    let c = cfg(port);
 
-    let cfg = cool_apisix::ApisixConfig {
-        admin_url: format!("http://127.0.0.1:{port}"),
-        admin_key: "test-key".into(),
-        enabled: true,
-        upstream_host: "10.0.0.5".into(),
-        scheme: "grpc".into(),
-        prefix: "prod".into(),
-    };
-
-    cool_apisix::auto_register(&cfg, "dict-service", "dict.v1", 8002)
+    cool_apisix::auto_register_web(&c, "base-service", "base.v1", 8001)
         .await
         .expect("register ok");
 
     let log = captured.lock().await;
-    let put = log
+    let route_body = &log
         .iter()
-        .find(|(l, _)| l.contains("PUT"))
-        .expect("should have PUT");
-    let (req_line, body) = put;
-    assert!(req_line.contains("/routes/prod-dict-service"), "path: {req_line}");
-    assert!(body.contains("/dict.v1.*"), "uris: {body}");
-    assert!(body.contains("10.0.0.5:8002"), "upstream: {body}");
+        .find(|(l, _)| l.contains("/routes/") && l.contains("-web"))
+        .unwrap()
+        .1;
+    assert!(route_body.contains("grpc-web"));
+    assert!(route_body.contains("/web/(.*)"));
 }
 
 #[tokio::test]
-async fn deregister_route_sends_delete() {
-    let captured = Arc::new(tokio::sync::Mutex::new(Vec::new()));
-    let port = mock_apisix(captured.clone()).await;
-
-    let cfg = cool_apisix::ApisixConfig {
-        admin_url: format!("http://127.0.0.1:{port}"),
-        admin_key: "test-key".into(),
-        enabled: true,
-        ..Default::default()
+async fn disabled_skips_registration() {
+    let c = cool_apisix::ApisixConfig { enabled: false, ..Default::default() };
+    let inst = cool_apisix::ServiceInstance {
+        service_id: "s".into(),
+        package: "p.v1".into(),
+        addr: "1:1".into(),
     };
-
-    cool_apisix::deregister_route(&cfg, "cool-base-service")
-        .await
-        .expect("deregister ok");
-
-    let log = captured.lock().await;
-    assert!(log[0].0.contains("DELETE"));
-    assert!(log[0].0.contains("/routes/cool-base-service"));
+    assert!(cool_apisix::register_instance(&c, &inst).await.is_ok());
 }

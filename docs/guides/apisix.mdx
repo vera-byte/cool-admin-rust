@@ -21,6 +21,82 @@ flowchart LR
     A -->|/task.v1/*| T[task-service :8004]
 ```
 
+## 架构：Service + 路由 + 服务发现
+
+每个微服务映射为一个 **APISIX Service** 资源，路由绑定 Service，
+上游使用**服务发现**（多实例自动发现，无需手工合并节点）：
+
+```mermaid
+graph TB
+    subgraph APISIX
+      S1[Service: dict-service] --> U1[upstream<br/>service_name + discovery_type]
+      R1[Route /dict.v1.*] --> S1
+      R2[Route /web/dict.v1.*] --> S1
+    end
+    U1 -->|DNS/K8s/Nacos/Consul| D[服务发现]
+    D --> I1[实例 :8002]
+    D --> I2[实例 :8012]
+    D --> I3[实例 :8022]
+```
+
+### 服务发现类型
+
+| 类型 | discovery_type | service_name 示例 |
+| --- | --- | --- |
+| **DNS** | `dns` | `dict-service.local` |
+| **Kubernetes** | `kubernetes` | `dict-service.default` |
+| **Nacos** | `nacos` | `dict-service` |
+| **ConsulKV** | `consul_kv` | `dict-service` |
+| **Eureka** | `eureka` | `dict-service` |
+| 静态节点 | — | 显式 `nodes`（兼容模式） |
+
+### 用法
+
+```rust
+use cool_apisix::{MicroService, ServiceDiscovery, register_microservice};
+
+// Kubernetes 服务发现（推荐生产）
+let svc = MicroService::grpc_k8s("dict-service", "dict.v1", "dict-service", "default");
+register_microservice(&cfg, &svc).await?;
+
+// DNS / Nacos / ConsulKV / Eureka
+let svc = MicroService::grpc_dns("dict-service", "dict.v1", "dict-service.local");
+let svc = MicroService::grpc_nacos("dict-service", "dict.v1", "dict-service", "DEFAULT_GROUP");
+let svc = MicroService::grpc_consul("dict-service", "dict.v1", "dict-service");
+
+// 静态节点（兼容旧模式）
+let svc = MicroService::grpc_static("dict-service", "dict.v1", "127.0.0.1:8002");
+```
+
+### APISIX 资源
+
+```json
+// Service（PUT /apisix/admin/services/dict-service）
+{
+  "name": "dict-service (dict.v1)",
+  "upstream": {
+    "type": "roundrobin",
+    "scheme": "grpc",
+    "service_name": "dict-service.default",
+    "discovery_type": "kubernetes",
+    "checks": { "active": {...}, "passive": {...} }
+  },
+  "plugins": { "proxy-rewrite": { "scheme": "grpc" } }
+}
+
+// Route（PUT /apisix/admin/routes/cool-dict-service）
+{
+  "uris": ["/dict.v1.*"],
+  "service_id": "dict-service",     // 绑定 Service，不内联 upstream
+  "priority": 10
+}
+```
+
+<Note>
+  服务发现模式下**多实例自动发现**（DNS/K8s/Nacos/Consul 自动轮询），
+  无需 `register_instance` 手工合并节点；实例上下线由服务发现中间件同步。
+</Note>
+
 ## 快速开始
 
 ### 1. 引入依赖

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.5.0 (2026-10-22)
+
+### 架构升级：APISIX Service + 服务发现
+
+**cool-apisix 重构**：每微服务一个 APISIX Service，路由绑定 Service，上游走服务发现。
+
+| 变更 | 说明 |
+| --- | --- |
+| `MicroService` | 微服务定义（id/package/scheme/discovery） |
+| `ServiceDiscovery` | DNS / Kubernetes / Nacos / ConsulKV / Eureka / 静态节点 |
+| `register_microservice` | 一键创建 Service + gRPC 路由 + gRPC-Web 路由 |
+| `register_service` / `bind_route` | Service 与路由分离管理 |
+| 路由绑定 | `service_id` 引用，不内联 upstream |
+| 多实例 | 服务发现自动管理（无需手工合并节点） |
+
+```rust
+// Kubernetes 服务发现（生产推荐）
+let svc = MicroService::grpc_k8s("dict-service", "dict.v1", "dict-service", "default");
+register_microservice(&cfg, &svc).await?;
+```
+
+### 验收
+
+- 11 项 cool-apisix 测试（Service 生成 / 路由绑定 / 多服务发现类型）
+- 75 测试全绿、clippy 零告警
+
+---
+
 ## 0.4.0 (2026-10-22)
 
 ### 新增：APISIX 网关集成（cool-apisix）
